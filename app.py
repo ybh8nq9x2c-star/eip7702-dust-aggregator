@@ -249,64 +249,54 @@ def get_chains():
 
 @app.route('/api/balances', methods=['POST'])
 def get_balances():
- """Get balances for a given address across all chains"""
- try:
- data = request.get_json()
- address = data.get('address')
- 
- if not address:
- return jsonify({'error': 'Address is required'}), 400
- 
- # Validate address
- if not Web3.is_address(address):
- return jsonify({'error': 'Invalid address'}), 400
- 
- balances = []
- 
- for chain_key, chain_config in CHAINS.items():
- try:
- # Connect to chain
- w3 = Web3(Web3.HTTPProvider(chain_config['rpc']))
- 
- if not w3.is_connected():
- print(f"Failed to connect to {chain_config['name']}")
- continue
- 
- # Get balance
- balance_wei = w3.eth.get_balance(address)
- balance_eth = w3.from_wei(balance_wei, 'ether')
- 
- # Only include if balance > 0
- if float(balance_eth) > 0:
- balances.append({
- 'chain': chain_config['name'],
- 'chain_key': chain_key,
- 'symbol': chain_config['symbol'],
- 'balance': float(balance_eth),
- 'address': address,
- 'color': chain_config['color'],
- 'contract_address': CONTRACT_ADDRESSES.get(chain_key, '0x0000000000000000000000000000000000000000')
- })
- 
- except Exception as e:
- print(f"Error checking {chain_config['name']}: {str(e)}")
- continue
- 
- return jsonify({
- 'balances': balances,
- 'total_chains': len(CHAINS),
- 'chains_with_balance': len(balances)
- })
- 
- except Exception as e:
- return jsonify({'error': str(e)}), 500
+    """Get balances for a given address across all chains"""
+    try:
+        data = request.get_json()
+        address = data.get('address')
 
+        if not address:
+            return jsonify({'error': 'Address is required'}), 400
+
+        # Validate address
+        if not Web3.is_address(address):
+            return jsonify({'error': 'Invalid address'}), 400
+
+        balances = []
+
+        for chain_key, chain_config in CHAINS.items():
+            try:
+                # Connect to chain
+                w3 = Web3(Web3.HTTPProvider(chain_config['rpc']))
+
+                if not w3.is_connected():
+                    print(f"Failed to connect to {chain_config['name']}")
+                    continue
+
+                # Get balance
+                balance = w3.eth.get_balance(address)
+
+                if balance > 0:
+                    balances.append({
+                        'chain': chain_key,
+                        'name': chain_config['name'],
+                        'symbol': chain_config['symbol'],
+                        'balance': str(balance),
+                        'balance_ether': float(w3.from_wei(balance, 'ether'))
+                    })
+            except Exception as e:
+                print(f"Error checking {chain_config['name']}: {str(e)}")
+                continue
+
+        return jsonify({'balances': balances})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/aggregate', methods=['POST'])
 def aggregate_dust():
  """Prepare transactions for aggregating dust from multiple chains"""
  try:
- data = request.get_json()
+     data = request.get_json()
  address = data.get('address')
  target_address = data.get('target_address')
  
@@ -325,7 +315,7 @@ def aggregate_dust():
  
  for chain_key, chain_config in CHAINS.items():
  try:
- # Connect to chain
+     # Connect to chain
  w3 = Web3(Web3.HTTPProvider(chain_config['rpc']))
  
  if not w3.is_connected():
