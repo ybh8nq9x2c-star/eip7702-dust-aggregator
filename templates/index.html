@@ -5,130 +5,90 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EIP-7702 Dust Aggregator</title>
     <link rel="stylesheet" href="/static/css/style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.ethers.io/lib/ethers-6.7.0.umd.min.js"></script>
 </head>
 <body>
     <div class="container">
-        <!-- Header -->
-        <header class="header">
-            <div class="logo">
-                <div class="logo-icon">🔄</div>
-                <h1>Dust Aggregator</h1>
-            </div>
-            <div class="header-info">
-                <span class="badge">EIP-7702</span>
-                <span class="badge fee">5% Fee</span>
-            </div>
+        <header>
+            <h1>🌐 EIP-7702 Dust Aggregator</h1>
+            <p class="subtitle">Aggregate dust from 15 EVM chains with 5% fee</p>
         </header>
 
-        <!-- Main Content -->
-        <main class="main-content">
-            <!-- Connection Section -->
-            <section class="section connection-section">
-                <h2>🔗 Connect Wallet</h2>
-                <div class="input-group">
-                    <label for="privateKey">Private Key</label>
-                    <input 
-                        type="password" 
-                        id="privateKey" 
-                        placeholder="Enter your private key (without 0x)"
-                        class="input-field"
-                    >
-                    <button id="toggleKey" class="toggle-btn">👁️</button>
-                </div>
-                <button id="connectBtn" class="btn btn-primary">
-                    <span class="btn-text">Connect</span>
-                    <span class="btn-loader"></span>
-                </button>
-            </section>
-
-            <!-- Wallet Info -->
-            <section id="walletInfo" class="section wallet-section hidden">
-                <h2>💰 Wallet Information</h2>
+        <div class="wallet-section">
+            <button id="connectWallet" class="btn btn-primary">
+                <span class="btn-icon">🦊</span>
+                Connect Wallet
+            </button>
+            <div id="walletInfo" class="wallet-info hidden">
                 <div class="wallet-address">
-                    <span class="label">Address:</span>
-                    <span id="walletAddress" class="address">-</span>
+                    <span class="label">Connected:</span>
+                    <span id="walletAddress"></span>
                 </div>
-            </section>
+                <button id="disconnectWallet" class="btn btn-secondary">Disconnect</button>
+            </div>
+        </div>
 
-            <!-- Chains Status -->
-            <section id="chainsStatus" class="section chains-section hidden">
-                <h2>📡 Chain Connections</h2>
-                <div id="chainsList" class="chains-list"></div>
-            </section>
+        <div class="main-content hidden" id="mainContent">
+            <div class="section">
+                <h2>🔍 Scan Balances</h2>
+                <button id="scanBalances" class="btn btn-primary">
+                    <span class="btn-icon">📊</span>
+                    Scan All Chains
+                </button>
+            </div>
 
-            <!-- Balances Section -->
-            <section id="balancesSection" class="section balances-section hidden">
-                <h2>💵 Balances Found</h2>
+            <div class="section hidden" id="balancesSection">
+                <h2>💰 Your Balances</h2>
                 <div id="balancesList" class="balances-list"></div>
                 <div class="total-section">
                     <div class="total-item">
                         <span class="label">Total Balance:</span>
-                        <span id="totalBalance" class="value">-</span>
+                        <span id="totalBalance" class="value">0 ETH</span>
+                    </div>
+                    <div class="total-item">
+                        <span class="label">Estimated Fee (5%):</span>
+                        <span id="estimatedFee" class="value">0 ETH</span>
+                    </div>
+                    <div class="total-item">
+                        <span class="label">You'll Receive:</span>
+                        <span id="youReceive" class="value">0 ETH</span>
                     </div>
                 </div>
-            </section>
+            </div>
 
-            <!-- Aggregation Section -->
-            <section id="aggregationSection" class="section aggregation-section hidden">
-                <h2>🎯 Aggregation Settings</h2>
-                <div class="input-group">
-                    <label for="targetAddress">Target Address</label>
-                    <input 
-                        type="text" 
-                        id="targetAddress" 
-                        placeholder="0x..."
-                        class="input-field"
-                    >
+            <div class="section hidden" id="aggregateSection">
+                <h2>🎯 Aggregate Dust</h2>
+                <div class="form-group">
+                    <label for="targetAddress">Target Address:</label>
+                    <input type="text" id="targetAddress" placeholder="0x..." class="input">
                 </div>
-                <div class="fee-info">
-                    <div class="fee-item">
-                        <span class="label">Fee:</span>
-                        <span class="value">5%</span>
-                    </div>
-                    <div class="fee-item">
-                        <span class="label">Fee Address:</span>
-                        <span class="value address">0xFc20...d2f1</span>
-                    </div>
-                </div>
-                <button id="aggregateBtn" class="btn btn-success">
-                    <span class="btn-text">Aggregate Dust</span>
-                    <span class="btn-loader"></span>
+                <button id="aggregateDust" class="btn btn-success">
+                    <span class="btn-icon">🚀</span>
+                    Aggregate Dust
                 </button>
-            </section>
+            </div>
 
-            <!-- Results Section -->
-            <section id="resultsSection" class="section results-section hidden">
-                <h2>📊 Aggregation Results</h2>
+            <div class="section hidden" id="resultsSection">
+                <h2>✅ Results</h2>
                 <div id="resultsList" class="results-list"></div>
-                <div class="summary-section">
-                    <div class="summary-item">
-                        <span class="label">Total to User:</span>
-                        <span id="totalToUser" class="value success">-</span>
-                    </div>
-                    <div class="summary-item">
-                        <span class="label">Total Fee (5%):</span>
-                        <span id="totalFee" class="value warning">-</span>
-                    </div>
-                    <div class="summary-item">
-                        <span class="label">Fee Address:</span>
-                        <span class="value address">0xFc20...d2f1</span>
-                    </div>
-                </div>
-            </section>
-        </main>
+            </div>
+        </div>
 
-        <!-- Footer -->
-        <footer class="footer">
-            <p>⚠️ Use at your own risk. Always verify addresses before transactions.</p>
-            <p>Powered by EIP-7702 Protocol</p>
+        <div class="loading hidden" id="loading">
+            <div class="spinner"></div>
+            <p id="loadingText">Processing...</p>
+        </div>
+
+        <div class="error hidden" id="error">
+            <div class="error-icon">⚠️</div>
+            <p id="errorMessage"></p>
+            <button id="closeError" class="btn btn-secondary">Close</button>
+        </div>
+
+        <footer>
+            <p>Fee Address: <span class="fee-address">0xFc20B3A46aD9DAD7d4656bB52C1B13CA042cd2f1</span></p>
+            <p>Fee: 5%</p>
         </footer>
-    </div>
-
-    <!-- Toast Notification -->
-    <div id="toast" class="toast hidden">
-        <span id="toastMessage"></span>
-        <button id="closeToast" class="close-btn">×</button>
     </div>
 
     <script src="/static/js/app.js"></script>
