@@ -294,91 +294,87 @@ def get_balances():
 
 @app.route('/api/aggregate', methods=['POST'])
 def aggregate_dust():
- """Prepare transactions for aggregating dust from multiple chains"""
- try:
-     data = request.get_json()
- address = data.get('address')
- target_address = data.get('target_address')
- 
- if not address:
- return jsonify({'error': 'Address is required'}), 400
- 
- if not target_address:
- return jsonify({'error': 'Target address is required'}), 400
- 
- # Validate addresses
- if not Web3.is_address(address) or not Web3.is_address(target_address):
- return jsonify({'error': 'Invalid address'}), 400
- 
- transactions = []
- total_amount = 0
- 
- for chain_key, chain_config in CHAINS.items():
- try:
-     # Connect to chain
- w3 = Web3(Web3.HTTPProvider(chain_config['rpc']))
- 
- if not w3.is_connected():
- continue
- 
- # Get balance
- balance_wei = w3.eth.get_balance(address)
- balance_eth = w3.from_wei(balance_wei, 'ether')
- 
- # Only process if balance > 0
- if float(balance_eth) > 0:
- # Calculate fee
- fee = float(balance_eth) * FEE_PERCENTAGE
- amount_after_fee = float(balance_eth) - fee
- 
- total_amount += amount_after_fee
- 
- # Get contract address
- contract_address = CONTRACT_ADDRESSES.get(chain_key, '0x0000000000000000000000000000000000000000')
- 
- # Prepare transaction data for smart contract call
- contract = w3.eth.contract(address=contract_address, abi=CONTRACT_ABI)
- 
- # Build transaction
- tx_data = contract.functions.aggregateDust(target_address).build_transaction({
- 'from': address,
- 'value': balance_wei,
- 'gas': 100000, # Estimate gas
- 'gasPrice': w3.eth.gas_price,
- 'nonce': w3.eth.get_transaction_count(address)
- })
- 
- transactions.append({
- 'chain': chain_config['name'],
- 'chain_key': chain_key,
- 'chain_id': chain_config['chain_id'],
- 'symbol': chain_config['symbol'],
- 'amount': amount_after_fee,
- 'fee': fee,
- 'to': target_address,
- 'from': address,
- 'contract_address': contract_address,
- 'tx_data': tx_data,
- 'native_currency': chain_config['native_currency'],
- 'status': 'pending',
- 'color': chain_config['color']
- })
- 
- except Exception as e:
- print(f"Error processing {chain_config['name']}: {str(e)}")
- continue
- 
- return jsonify({
- 'transactions': transactions,
- 'total_amount': total_amount,
- 'total_fee': total_amount * FEE_PERCENTAGE,
- 'status': 'prepared'
- })
- 
- except Exception as e:
- return jsonify({'error': str(e)}), 500
+    """Prepare transactions for aggregating dust from multiple chains"""
+    try:
+        data = request.get_json()
+        address = data.get('address')
+        target_address = data.get('target_address')
 
+        if not address:
+            return jsonify({'error': 'Address is required'}), 400
 
-if __name__ == '__main__':
- port = int(os.environ.get('PORT', 5000))
- app.run(host='0.0.0.0', port=port, debug=False)
+        if not target_address:
+            return jsonify({'error': 'Target address is required'}), 400
+
+        # Validate addresses
+        if not Web3.is_address(address) or not Web3.is_address(target_address):
+            return jsonify({'error': 'Invalid address'}), 400
+
+        transactions = []
+        total_amount = 0
+
+        for chain_key, chain_config in CHAINS.items():
+            try:
+                # Connect to chain
+                w3 = Web3(Web3.HTTPProvider(chain_config['rpc']))
+
+                if not w3.is_connected():
+                    print(f"Failed to connect to {chain_config['name']}")
+                    continue
+
+                # Get balance
+                balance_wei = w3.eth.get_balance(address)
+                balance_eth = w3.from_wei(balance_wei, 'ether')
+
+                # Only process if balance > 0
+                if float(balance_eth) > 0:
+                    # Calculate fee
+                    fee = float(balance_eth) * FEE_PERCENTAGE
+                    amount_after_fee = float(balance_eth) - fee
+
+                    total_amount += amount_after_fee
+
+                    # Get contract address
+                    contract_address = CONTRACT_ADDRESSES.get(chain_key, '0x0000000000000000000000000000000000000000')
+
+                    # Prepare transaction data for smart contract call
+                    contract = w3.eth.contract(address=contract_address, abi=CONTRACT_ABI)
+
+                    # Build transaction
+                    tx_data = contract.functions.aggregateDust(target_address).build_transaction({
+                        'from': address,
+                        'value': balance_wei,
+                        'gas': 100000,  # Estimate gas
+                        'gasPrice': w3.eth.gas_price,
+                        'nonce': w3.eth.get_transaction_count(address)
+                    })
+
+                    transactions.append({
+                        'chain': chain_config['name'],
+                        'chain_key': chain_key,
+                        'chain_id': chain_config['chain_id'],
+                        'symbol': chain_config['symbol'],
+                        'amount': amount_after_fee,
+                        'fee': fee,
+                        'to': target_address,
+                        'from': address,
+                        'contract_address': contract_address,
+                        'tx_data': tx_data,
+                        'native_currency': chain_config['native_currency'],
+                        'status': 'pending',
+                        'color': chain_config['color']
+                    })
+            except Exception as e:
+                print(f"Error processing {chain_config['name']}: {str(e)}")
+                continue
+
+        return jsonify({
+            'transactions': transactions,
+            'total_amount': total_amount,
+            'total_fee': total_amount * FEE_PERCENTAGE,
+            'status': 'prepared'
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
