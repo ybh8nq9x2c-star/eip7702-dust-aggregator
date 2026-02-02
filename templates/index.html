@@ -5,139 +5,158 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EIP-7702 Dust Aggregator</title>
     <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://unpkg.com/ethers@6.7.0/dist/ethers.umd.min.js"></script>
+    <script src="https://unpkg.com/@web3modal/standalone@2.7.0/dist/index.js"></script>
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>🌐 EIP-7702 Dust Aggregator</h1>
-            <p class="subtitle">Aggregate dust from 15 EVM chains with 5% fee</p>
+            <div class="header-content">
+                <div class="logo">
+                    <div class="logo-icon">🌐</div>
+                    <div class="logo-text">
+                        <h1>EIP-7702</h1>
+                        <p class="tagline">Dust Aggregator</p>
+                    </div>
+                </div>
+                <div class="header-actions">
+                    <w3m-button></w3m-button>
+                </div>
+            </div>
         </header>
 
-        <div class="wallet-section">
-            <button id="connectWallet" class="btn btn-primary">
-                <span class="btn-icon">🦊</span>
-                Connect Wallet
-            </button>
-            <div id="walletInfo" class="wallet-info hidden">
-                <div class="wallet-address">
-                    <span class="label">Connected:</span>
-                    <span id="walletAddress"></span>
+        <div class="wallet-banner hidden" id="walletBanner">
+            <div class="wallet-banner-content">
+                <div class="wallet-info">
+                    <div class="wallet-icon">✓</div>
+                    <div class="wallet-details">
+                        <span class="wallet-label">Connected</span>
+                        <span class="wallet-address" id="walletAddress"></span>
+                    </div>
                 </div>
-                <button id="disconnectWallet" class="btn btn-secondary">Disconnect</button>
+                <button id="disconnectWallet" class="btn btn-ghost">Disconnect</button>
             </div>
         </div>
 
-        <div class="main-content hidden" id="mainContent">
-            <div class="section">
-                <h2>🔍 Scan Balances</h2>
-                <button id="scanBalances" class="btn btn-primary">
-                    <span class="btn-icon">📊</span>
-                    Scan All Chains
-                </button>
-            </div>
-
-            <div class="section hidden" id="balancesSection">
-                <h2>💰 Your Balances</h2>
-                <div id="balancesList" class="balances-list"></div>
-                <div class="total-section">
-                    <div class="total-item">
-                        <span class="label">Total Balance:</span>
-                        <span id="totalBalance" class="value">0 ETH</span>
-                    </div>
-                    <div class="total-item">
-                        <span class="label">Estimated Fee (5%):</span>
-                        <span id="estimatedFee" class="value">0 ETH</span>
-                    </div>
-                    <div class="total-item">
-                        <span class="label">You'll Receive:</span>
-                        <span id="youReceive" class="value">0 ETH</span>
+        <main class="main-content hidden" id="mainContent">
+            <section class="hero-section">
+                <div class="hero-content">
+                    <h2>Aggregate Your Dust Across 15 EVM Chains</h2>
+                    <p class="hero-description">
+                        Automatically collect and consolidate your dust balances from multiple blockchains into a single transaction with minimal gas fees.
+                    </p>
+                    <div class="hero-stats">
+                        <div class="stat-item">
+                            <div class="stat-value">15</div>
+                            <div class="stat-label">Chains Supported</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">5%</div>
+                            <div class="stat-label">Service Fee</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">0</div>
+                            <div class="stat-label">Private Key Required</div>
+                        </div>
                     </div>
                 </div>
-            </div>
+            </section>
 
-            <div class="section hidden" id="aggregateSection">
-                <h2>🎯 Aggregate Dust</h2>
-                <div class="form-group">
-                    <label for="targetAddress">Target Address:</label>
-                    <input type="text" id="targetAddress" placeholder="0x..." class="input">
+            <section class="action-section">
+                <div class="action-card">
+                    <div class="action-header">
+                        <div class="action-icon">🔍</div>
+                        <h3>Scan Balances</h3>
+                    </div>
+                    <p class="action-description">
+                        Scan your wallet address across all supported EVM chains to find dust balances.
+                    </p>
+                    <button id="scanBalances" class="btn btn-primary btn-full">
+                        <span class="btn-icon">📊</span>
+                        Scan All Chains
+                    </button>
                 </div>
-                <button id="aggregateDust" class="btn btn-success">
-                    <span class="btn-icon">🚀</span>
-                    Aggregate Dust
-                </button>
-            </div>
+            </section>
 
-            <div class="section hidden" id="resultsSection">
-                <h2>✅ Results</h2>
+            <section class="balances-section hidden" id="balancesSection">
+                <div class="section-header">
+                    <h2>Your Balances</h2>
+                    <p class="section-description">Dust balances found across chains</p>
+                </div>
+                <div id="balancesList" class="balances-grid"></div>
+                <div class="summary-card">
+                    <div class="summary-row">
+                        <span class="summary-label">Total Balance</span>
+                        <span class="summary-value" id="totalBalance">0 ETH</span>
+                    </div>
+                    <div class="summary-row">
+                        <span class="summary-label">Service Fee (5%)</span>
+                        <span class="summary-value" id="estimatedFee">0 ETH</span>
+                    </div>
+                    <div class="summary-row summary-row-total">
+                        <span class="summary-label">You'll Receive</span>
+                        <span class="summary-value" id="youReceive">0 ETH</span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="aggregate-section hidden" id="aggregateSection">
+                <div class="section-header">
+                    <h2>Aggregate Dust</h2>
+                    <p class="section-description">Consolidate your dust into a single transaction</p>
+                </div>
+                <div class="aggregate-card">
+                    <div class="form-group">
+                        <label for="targetAddress">Destination Address</label>
+                        <input type="text" id="targetAddress" placeholder="0x..." class="input">
+                        <p class="input-hint">Enter the address where you want to receive your aggregated funds</p>
+                    </div>
+                    <button id="aggregateDust" class="btn btn-success btn-full btn-lg">
+                        <span class="btn-icon">🚀</span>
+                        Aggregate Dust
+                    </button>
+                </div>
+            </section>
+
+            <section class="results-section hidden" id="resultsSection">
+                <div class="section-header">
+                    <h2>Transaction Results</h2>
+                    <p class="section-description">Review your aggregation transactions</p>
+                </div>
                 <div id="resultsList" class="results-list"></div>
+            </section>
+        </main>
+
+        <div class="loading-overlay hidden" id="loading">
+            <div class="loading-content">
+                <div class="spinner"></div>
+                <p id="loadingText">Processing...</p>
             </div>
         </div>
 
-        <div class="loading hidden" id="loading">
-            <div class="spinner"></div>
-            <p id="loadingText">Processing...</p>
-        </div>
-
-        <div class="error hidden" id="error">
-            <div class="error-icon">⚠️</div>
-            <p id="errorMessage"></p>
-            <button id="closeError" class="btn btn-secondary">Close</button>
+        <div class="error-modal hidden" id="error">
+            <div class="error-content">
+                <div class="error-icon">⚠️</div>
+                <h3>Error</h3>
+                <p id="errorMessage"></p>
+                <button id="closeError" class="btn btn-primary">Close</button>
+            </div>
         </div>
 
         <footer>
-            <p>Fee Address: <span class="fee-address">0xFc20B3A46aD9DAD7d4656bB52C1B13CA042cd2f1</span></p>
-            <p>Fee: 5%</p>
+            <div class="footer-content">
+                <p>&copy; 2024 EIP-7702 Dust Aggregator. All rights reserved.</p>
+                <p class="footer-links">
+                    <a href="#">Terms</a>
+                    <span>•</span>
+                    <a href="#">Privacy</a>
+                    <span>•</span>
+                    <a href="#">Documentation</a>
+                </p>
+            </div>
         </footer>
     </div>
 
-    <!-- Load Ethers.js with fallback -->
-    <script>
-        // Function to load Ethers.js
-        function loadEthers() {
-            return new Promise((resolve, reject) => {
-                // Try unpkg CDN first
-                const script = document.createElement('script');
-                script.src = 'https://unpkg.com/ethers@6.7.0/dist/ethers.umd.min.js';
-                script.onload = () => {
-                    if (typeof ethers !== 'undefined') {
-                        console.log('Ethers.js loaded successfully from unpkg');
-                        resolve();
-                    } else {
-                        reject(new Error('Ethers not defined after loading from unpkg'));
-                    }
-                };
-                script.onerror = () => {
-                    console.error('Failed to load Ethers.js from unpkg, trying jsdelivr...');
-                    // Fallback to jsdelivr
-                    const fallbackScript = document.createElement('script');
-                    fallbackScript.src = 'https://cdn.jsdelivr.net/npm/ethers@6.7.0/dist/ethers.umd.min.js';
-                    fallbackScript.onload = () => {
-                        if (typeof ethers !== 'undefined') {
-                            console.log('Ethers.js loaded successfully from jsdelivr');
-                            resolve();
-                        } else {
-                            reject(new Error('Ethers not defined after loading from jsdelivr'));
-                        }
-                    };
-                    fallbackScript.onerror = () => {
-                        reject(new Error('Failed to load Ethers.js from both CDNs'));
-                    };
-                    document.head.appendChild(fallbackScript);
-                };
-                document.head.appendChild(script);
-            });
-        }
-
-        // Load Ethers.js and then load app.js
-        loadEthers().then(() => {
-            console.log('Ethers.js is ready, loading app.js...');
-            const appScript = document.createElement('script');
-            appScript.src = '/static/js/app.js';
-            document.body.appendChild(appScript);
-        }).catch((error) => {
-            console.error('Failed to load Ethers.js:', error);
-            alert('Failed to load Ethers.js library. Please refresh the page and try again.');
-        });
-    </script>
+    <script src="/static/js/app.js"></script>
 </body>
 </html>
