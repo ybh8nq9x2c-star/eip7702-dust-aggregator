@@ -57,6 +57,76 @@ CHAINS = {
         'symbol': 'ETH',
         'name': 'Optimism',
         'color': '#FF0420'
+    },
+    'avalanche': {
+        'rpc': 'https://api.avax.network/ext/bc/C/rpc',
+        'chain_id': 43114,
+        'symbol': 'AVAX',
+        'name': 'Avalanche',
+        'color': '#E84142'
+    },
+    'fantom': {
+        'rpc': 'https://rpc.ftm.tools',
+        'chain_id': 250,
+        'symbol': 'FTM',
+        'name': 'Fantom',
+        'color': '#1969FF'
+    },
+    'moonbeam': {
+        'rpc': 'https://rpc.api.moonbeam.network',
+        'chain_id': 1284,
+        'symbol': 'GLMR',
+        'name': 'Moonbeam',
+        'color': '#1B3B6F'
+    },
+    'celo': {
+        'rpc': 'https://forno.celo.org',
+        'chain_id': 42220,
+        'symbol': 'CELO',
+        'name': 'Celo',
+        'color': '#FBCC5C'
+    },
+    'aurora': {
+        'rpc': 'https://mainnet.aurora.dev',
+        'chain_id': 1313161554,
+        'symbol': 'AURORA',
+        'name': 'Aurora',
+        'color': '#00A8E8'
+    },
+    'polygon_zkevm': {
+        'rpc': 'https://zkevm-rpc.com',
+        'chain_id': 1101,
+        'symbol': 'ETH',
+        'name': 'Polygon zkEVM',
+        'color': '#8247E5'
+    },
+    'linea': {
+        'rpc': 'https://rpc.linea.build',
+        'chain_id': 59144,
+        'symbol': 'ETH',
+        'name': 'Linea',
+        'color': '#4A90E2'
+    },
+    'base': {
+        'rpc': 'https://mainnet.base.org',
+        'chain_id': 8453,
+        'symbol': 'ETH',
+        'name': 'Base',
+        'color': '#0052FF'
+    },
+    'scroll': {
+        'rpc': 'https://rpc.scroll.io',
+        'chain_id': 534352,
+        'symbol': 'ETH',
+        'name': 'Scroll',
+        'color': '#FFE600'
+    },
+    'zksync': {
+        'rpc': 'https://mainnet.era.zksync.io',
+        'chain_id': 324,
+        'symbol': 'ETH',
+        'name': 'zkSync Era',
+        'color': '#1E1E1E'
     }
 }
 
