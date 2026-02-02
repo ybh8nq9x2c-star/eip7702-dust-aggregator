@@ -6,8 +6,10 @@ Now supports Web3 wallet connection via dapp!
 """
 
 import os
-from flask import Flask, render_template, jsonify
+import json
+from flask import Flask, render_template, jsonify, request
 from flask_cors import CORS
+from web3 import Web3
 
 app = Flask(__name__)
 CORS(app)
@@ -140,6 +142,130 @@ def get_chains():
         'fee_percentage': FEE_PERCENTAGE * 100,
         'fee_address': FEE_ADDRESS
     })
+
+
+@app.route('/api/balances', methods=['POST'])
+def get_balances():
+    """Get balances for a given address across all chains"""
+    try:
+        data = request.get_json()
+        address = data.get('address')
+        
+        if not address:
+            return jsonify({'error': 'Address is required'}), 400
+        
+        # Validate address
+        if not Web3.is_address(address):
+            return jsonify({'error': 'Invalid address'}), 400
+        
+        balances = []
+        
+        for chain_key, chain_config in CHAINS.items():
+            try:
+                # Connect to chain
+                w3 = Web3(Web3.HTTPProvider(chain_config['rpc']))
+                
+                if not w3.is_connected():
+                    print(f"Failed to connect to {chain_config['name']}")
+                    continue
+                
+                # Get balance
+                balance_wei = w3.eth.get_balance(address)
+                balance_eth = w3.from_wei(balance_wei, 'ether')
+                
+                # Only include if balance > 0
+                if float(balance_eth) > 0:
+                    balances.append({
+                        'chain': chain_config['name'],
+                        'chain_key': chain_key,
+                        'symbol': chain_config['symbol'],
+                        'balance': float(balance_eth),
+                        'address': address,
+                        'color': chain_config['color']
+                    })
+                    
+            except Exception as e:
+                print(f"Error checking {chain_config['name']}: {str(e)}")
+                continue
+        
+        return jsonify({
+            'balances': balances,
+            'total_chains': len(CHAINS),
+            'chains_with_balance': len(balances)
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/aggregate', methods=['POST'])
+def aggregate_dust():
+    """Aggregate dust from multiple chains (simulation mode)"""
+    try:
+        data = request.get_json()
+        address = data.get('address')
+        target_address = data.get('target_address')
+        
+        if not address:
+            return jsonify({'error': 'Address is required'}), 400
+        
+        if not target_address:
+            return jsonify({'error': 'Target address is required'}), 400
+        
+        # Validate addresses
+        if not Web3.is_address(address) or not Web3.is_address(target_address):
+            return jsonify({'error': 'Invalid address'}), 400
+        
+        transactions = []
+        total_amount = 0
+        
+        for chain_key, chain_config in CHAINS.items():
+            try:
+                # Connect to chain
+                w3 = Web3(Web3.HTTPProvider(chain_config['rpc']))
+                
+                if not w3.is_connected():
+                    continue
+                
+                # Get balance
+                balance_wei = w3.eth.get_balance(address)
+                balance_eth = w3.from_wei(balance_wei, 'ether')
+                
+                # Only process if balance > 0
+                if float(balance_eth) > 0:
+                    # Calculate fee
+                    fee = float(balance_eth) * FEE_PERCENTAGE
+                    amount_after_fee = float(balance_eth) - fee
+                    
+                    total_amount += amount_after_fee
+                    
+                    # In simulation mode, we don't actually send transactions
+                    transactions.append({
+                        'chain': chain_config['name'],
+                        'chain_key': chain_key,
+                        'symbol': chain_config['symbol'],
+                        'amount': amount_after_fee,
+                        'fee': fee,
+                        'to': target_address,
+                        'from': address,
+                        'status': 'success',
+                        'tx_hash': f"0x{'0' * 64}",  # Simulation hash
+                        'color': chain_config['color']
+                    })
+                    
+            except Exception as e:
+                print(f"Error processing {chain_config['name']}: {str(e)}")
+                continue
+        
+        return jsonify({
+            'transactions': transactions,
+            'total_amount': total_amount,
+            'total_fee': total_amount * FEE_PERCENTAGE,
+            'status': 'completed'
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 if __name__ == '__main__':
