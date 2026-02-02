@@ -257,23 +257,26 @@ def get_balances():
         if not address:
             return jsonify({'error': 'Address is required'}), 400
 
-        # Validate address
+        # Validate address and convert to checksum
         if not Web3.is_address(address):
             return jsonify({'error': 'Invalid address'}), 400
+
+        # Convert to checksum address
+        checksum_address = Web3.to_checksum_address(address)
 
         balances = []
 
         for chain_key, chain_config in CHAINS.items():
             try:
-                # Connect to chain
-                w3 = Web3(Web3.HTTPProvider(chain_config['rpc']))
+                # Connect to chain with timeout
+                w3 = Web3(Web3.HTTPProvider(chain_config['rpc'], request_kwargs={'timeout': 10}))
 
                 if not w3.is_connected():
                     print(f"Failed to connect to {chain_config['name']}")
                     continue
 
                 # Get balance
-                balance = w3.eth.get_balance(address)
+                balance = w3.eth.get_balance(checksum_address)
 
                 if balance > 0:
                     balances.append({
@@ -306,24 +309,28 @@ def aggregate_dust():
         if not target_address:
             return jsonify({'error': 'Target address is required'}), 400
 
-        # Validate addresses
+        # Validate addresses and convert to checksum
         if not Web3.is_address(address) or not Web3.is_address(target_address):
             return jsonify({'error': 'Invalid address'}), 400
+
+        # Convert to checksum addresses
+        checksum_address = Web3.to_checksum_address(address)
+        checksum_target_address = Web3.to_checksum_address(target_address)
 
         transactions = []
         total_amount = 0
 
         for chain_key, chain_config in CHAINS.items():
             try:
-                # Connect to chain
-                w3 = Web3(Web3.HTTPProvider(chain_config['rpc']))
+                # Connect to chain with timeout
+                w3 = Web3(Web3.HTTPProvider(chain_config['rpc'], request_kwargs={'timeout': 10}))
 
                 if not w3.is_connected():
                     print(f"Failed to connect to {chain_config['name']}")
                     continue
 
                 # Get balance
-                balance_wei = w3.eth.get_balance(address)
+                balance_wei = w3.eth.get_balance(checksum_address)
                 balance_eth = w3.from_wei(balance_wei, 'ether')
 
                 # Only process if balance > 0
@@ -341,12 +348,12 @@ def aggregate_dust():
                     contract = w3.eth.contract(address=contract_address, abi=CONTRACT_ABI)
 
                     # Build transaction
-                    tx_data = contract.functions.aggregateDust(target_address).build_transaction({
+                    tx_data = contract.functions.aggregateDust(checksum_target_address).build_transaction({
                         'from': address,
                         'value': balance_wei,
                         'gas': 100000,  # Estimate gas
                         'gasPrice': w3.eth.gas_price,
-                        'nonce': w3.eth.get_transaction_count(address)
+                        'nonce': w3.eth.get_transaction_count(checksum_address)
                     })
 
                     transactions.append({
