@@ -1,156 +1,119 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
- <meta charset="UTF-8">
- <meta name="viewport" content="width=device-width, initial-scale=1.0">
- <title>EIP-7702 Dust Aggregator</title>
- <link rel="stylesheet" href="/static/css/style.css">
- <script src="https://unpkg.com/ethers@6.7.0/dist/ethers.umd.min.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dust.zip - EIP-7702 Dust Aggregator</title>
+    <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
- <div class="app-container">
- <!-- Header -->
- <header class="header">
- <div class="header-content">
- <div class="logo">
- <span class="logo-text">Dust</span>
- <span class="logo-accent">.zip</span>
- </div>
- <button id="connectWallet" class="connect-btn">
- <span class="connect-icon">🦊</span>
- <span class="connect-text">Connect</span>
- </button>
- </div>
- </header>
+    <div class="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <span class="logo-icon">⚡</span>
+                <span class="logo-text">Dust.zip</span>
+            </div>
+            <div class="header-right">
+                <button id="connectWallet" class="btn btn-primary">
+                    <span>🦊</span> Connect Wallet
+                </button>
+                <div id="walletBanner" class="wallet-banner hidden">
+                    <span id="walletAddress"></span>
+                    <button id="disconnectWallet" class="btn btn-small">✕</button>
+                </div>
+            </div>
+        </header>
 
- <!-- Wallet Banner -->
- <div class="wallet-banner hidden" id="walletBanner">
- <div class="wallet-info">
- <div class="wallet-status">✓</div>
- <div class="wallet-address" id="walletAddress"></div>
- <button id="disconnectWallet" class="disconnect-btn">✕</button>
- </div>
- </div>
+        <!-- Main Content -->
+        <main class="main">
+            <!-- Hero Section -->
+            <section class="hero">
+                <h1>Aggregate Your Dust</h1>
+                <p>Collect small balances from 15+ EVM chains into one address</p>
+            </section>
 
- <!-- Main Content -->
- <main class="main-content" id="mainContent">
- <!-- Hero Section -->
- <section class="hero-section">
- <div class="hero-title">
- <h1>Aggregate Your Dust</h1>
- <p class="hero-subtitle">Across 15 EVM Chains</p>
- </div>
- 
- <div class="stats-grid">
- <div class="stat-card">
- <div class="stat-value" id="totalChains">15</div>
- <div class="stat-label">Chains</div>
- </div>
- <div class="stat-card">
- <div class="stat-value">5%</div>
- <div class="stat-label">Fee</div>
- </div>
- <div class="stat-card">
- <div class="stat-value" id="chainsWithBalance">0</div>
- <div class="stat-label">With Balance</div>
- </div>
- </div>
- </section>
+            <!-- Input Section -->
+            <section class="input-section">
+                <div class="input-group">
+                    <label for="walletAddressInput">Wallet Address</label>
+                    <input type="text" id="walletAddressInput" placeholder="0x... or connect wallet" autocomplete="off">
+                </div>
+                <button id="scanBalances" class="btn btn-large btn-primary">
+                    🔍 Scan All Chains
+                </button>
+            </section>
 
- <!-- Address Input Section -->
- <section class="address-section">
- <div class="input-group">
- <label for="walletAddressInput">Wallet Address</label>
- <input type="text" id="walletAddressInput" placeholder="0x..." class="input-field">
- <p class="input-hint">Enter your wallet address or connect with MetaMask</p>
- </div>
- </section>
+            <!-- Stats Section -->
+            <section class="stats-section">
+                <div class="stat-card">
+                    <div class="stat-value" id="chainsWithBalance">0</div>
+                    <div class="stat-label">Chains with Balance</div>
+                </div>
+            </section>
 
- <!-- Scan Section -->
- <section class="scan-section">
- <button id="scanBalances" class="scan-btn">
- <span class="scan-icon">🔍</span>
- <span class="scan-text">Scan All Chains</span>
- </button>
- </section>
+            <!-- Balances Section -->
+            <section id="balancesSection" class="balances-section hidden">
+                <h2>💰 Found Balances</h2>
+                <div id="balancesList" class="balances-grid"></div>
+            </section>
 
- <!-- Balances Section -->
- <section class="balances-section hidden" id="balancesSection">
- <div class="section-header">
- <h2>Your Balances</h2>
- </div>
- 
- <div class="balances-list" id="balancesList"></div>
- 
- <div class="summary-card">
- <div class="summary-row">
- <span class="summary-label">Total</span>
- <span class="summary-value" id="totalBalance">0.00</span>
- </div>
- <div class="summary-row">
- <span class="summary-label">Fee (5%)</span>
- <span class="summary-value" id="estimatedFee">0.00</span>
- </div>
- <div class="summary-row summary-row-highlight">
- <span class="summary-label">You Receive</span>
- <span class="summary-value" id="youReceive">0.00</span>
- </div>
- </div>
- </section>
+            <!-- Aggregate Section -->
+            <section id="aggregateSection" class="aggregate-section hidden">
+                <h2>🎯 Aggregate Dust</h2>
+                
+                <div class="summary-cards">
+                    <div class="summary-card">
+                        <div class="summary-label">Total Balance</div>
+                        <div class="summary-value"><span id="totalBalance">0</span></div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-label">Fee (5%)</div>
+                        <div class="summary-value"><span id="estimatedFee">0</span></div>
+                    </div>
+                    <div class="summary-card highlight">
+                        <div class="summary-label">You Receive</div>
+                        <div class="summary-value"><span id="youReceive">0</span></div>
+                    </div>
+                </div>
 
- <!-- Aggregate Section -->
- <section class="aggregate-section hidden" id="aggregateSection">
- <div class="section-header">
- <h2>Aggregate</h2>
- </div>
- 
- <div class="aggregate-form">
- <div class="input-group">
- <label for="targetAddress">Destination Address</label>
- <input type="text" id="targetAddress" placeholder="0x..." class="input-field">
- </div>
- 
- <button id="aggregateDust" class="aggregate-btn">
- <span class="aggregate-icon">🚀</span>
- <span class="aggregate-text">Aggregate Dust</span>
- </button>
- </div>
- </section>
+                <div class="input-group">
+                    <label for="targetAddress">Destination Address</label>
+                    <input type="text" id="targetAddress" placeholder="0x... where to send your dust" autocomplete="off">
+                </div>
 
- <!-- Results Section -->
- <section class="results-section hidden" id="resultsSection">
- <div class="section-header">
- <h2>Results</h2>
- </div>
- 
- <div class="results-list" id="resultsList"></div>
- </section>
- </main>
+                <button id="aggregateDust" class="btn btn-large btn-success">
+                    ⚡ Aggregate Now
+                </button>
+            </section>
 
- <!-- Loading Overlay -->
- <div class="loading-overlay hidden" id="loading">
- <div class="loading-content">
- <div class="loading-spinner"></div>
- <p class="loading-text" id="loadingText">Processing...</p>
- </div>
- </div>
+            <!-- Results Section -->
+            <section id="resultsSection" class="results-section hidden">
+                <h2>📋 Transaction Results</h2>
+                <div id="resultsList" class="results-grid"></div>
+            </section>
+        </main>
 
- <!-- Error Modal -->
- <div class="error-modal hidden" id="error">
- <div class="error-content">
- <div class="error-icon">⚠️</div>
- <h3>Error</h3>
- <p class="error-message" id="errorMessage"></p>
- <button id="closeError" class="close-btn">Close</button>
- </div>
- </div>
+        <!-- Footer -->
+        <footer class="footer">
+            <p>Powered by EIP-7702 | 15 EVM Chains Supported</p>
+        </footer>
 
- <!-- Footer -->
- <footer class="footer">
- <p>&copy; 2024 EIP-7702 Dust Aggregator</p>
- </footer>
- </div>
+        <!-- Loading Overlay -->
+        <div id="loading" class="loading-overlay hidden">
+            <div class="loading-content">
+                <div class="spinner"></div>
+                <p id="loadingText">Loading...</p>
+            </div>
+        </div>
 
- <script src="/static/js/app.js"></script>
+        <!-- Error Toast -->
+        <div id="error" class="error-toast hidden">
+            <span id="errorMessage"></span>
+            <button id="closeError" class="btn btn-small">✕</button>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
 </body>
 </html>
