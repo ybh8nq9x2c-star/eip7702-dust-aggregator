@@ -235,7 +235,7 @@ def get_chains():
  """Get available chains"""
  chains_with_contracts = {}
  for chain_key, chain_config in CHAINS.items():
- chains_with_contracts[chain_key] = {
+     chains_with_contracts[chain_key] = {
  **chain_config,
  'contract_address': CONTRACT_ADDRESSES.get(chain_key, '0x0000000000000000000000000000000000000000')
  }
