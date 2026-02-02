@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EIP-7702 Dust Aggregator</title>
     <link rel="stylesheet" href="/static/css/style.css">
-    <script src="https://cdn.jsdelivr.net/npm/ethers@6.7.0/dist/ethers.umd.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -91,6 +90,54 @@
         </footer>
     </div>
 
-    <script src="/static/js/app.js"></script>
+    <!-- Load Ethers.js with fallback -->
+    <script>
+        // Function to load Ethers.js
+        function loadEthers() {
+            return new Promise((resolve, reject) => {
+                // Try unpkg CDN first
+                const script = document.createElement('script');
+                script.src = 'https://unpkg.com/ethers@6.7.0/dist/ethers.umd.min.js';
+                script.onload = () => {
+                    if (typeof ethers !== 'undefined') {
+                        console.log('Ethers.js loaded successfully from unpkg');
+                        resolve();
+                    } else {
+                        reject(new Error('Ethers not defined after loading from unpkg'));
+                    }
+                };
+                script.onerror = () => {
+                    console.error('Failed to load Ethers.js from unpkg, trying jsdelivr...');
+                    // Fallback to jsdelivr
+                    const fallbackScript = document.createElement('script');
+                    fallbackScript.src = 'https://cdn.jsdelivr.net/npm/ethers@6.7.0/dist/ethers.umd.min.js';
+                    fallbackScript.onload = () => {
+                        if (typeof ethers !== 'undefined') {
+                            console.log('Ethers.js loaded successfully from jsdelivr');
+                            resolve();
+                        } else {
+                            reject(new Error('Ethers not defined after loading from jsdelivr'));
+                        }
+                    };
+                    fallbackScript.onerror = () => {
+                        reject(new Error('Failed to load Ethers.js from both CDNs'));
+                    };
+                    document.head.appendChild(fallbackScript);
+                };
+                document.head.appendChild(script);
+            });
+        }
+
+        // Load Ethers.js and then load app.js
+        loadEthers().then(() => {
+            console.log('Ethers.js is ready, loading app.js...');
+            const appScript = document.createElement('script');
+            appScript.src = '/static/js/app.js';
+            document.body.appendChild(appScript);
+        }).catch((error) => {
+            console.error('Failed to load Ethers.js:', error);
+            alert('Failed to load Ethers.js library. Please refresh the page and try again.');
+        });
+    </script>
 </body>
 </html>
