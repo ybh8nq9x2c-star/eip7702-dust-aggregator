@@ -1,316 +1,227 @@
-#!/usr/bin/env python3
-"""
-EIP-7702 Dust Aggregator Web Application
-Web interface for aggregating dust from multiple EVM chains
-"""
-
-import os
-import json
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 from web3 import Web3
+import os
 
 app = Flask(__name__)
 CORS(app)
 
-# Fee configuration
-FEE_PERCENTAGE = 0.05  # 5%
-FEE_ADDRESS = "0xFc20B3A46aD9DAD7d4656bB52C1B13CA042cd2f1"
+FEE_PERCENTAGE = 0.05
+FEE_ADDRESS = '0xFc20B3A46aD9DAD7d4656bB52C1B13CA042cd2f1'
 
-# Chain configurations
 CHAINS = {
     'ethereum': {
-        'rpc': 'https://eth.llamarpc.com',
-        'chain_id': 1,
-        'symbol': 'ETH',
         'name': 'Ethereum',
+        'rpc': 'https://eth.llamarpc.com',
+        'chainId': '0x1',
+        'symbol': 'ETH',
         'color': '#627EEA'
     },
     'polygon': {
-        'rpc': 'https://polygon.llamarpc.com',
-        'chain_id': 137,
-        'symbol': 'MATIC',
         'name': 'Polygon',
+        'rpc': 'https://polygon.llamarpc.com',
+        'chainId': '0x89',
+        'symbol': 'MATIC',
         'color': '#8247E5'
     },
     'bsc': {
-        'rpc': 'https://bsc-dataseed.binance.org',
-        'chain_id': 56,
-        'symbol': 'BNB',
         'name': 'BNB Chain',
+        'rpc': 'https://bsc-dataseed.binance.org',
+        'chainId': '0x38',
+        'symbol': 'BNB',
         'color': '#F3BA2F'
     },
     'arbitrum': {
-        'rpc': 'https://arb1.arbitrum.io/rpc',
-        'chain_id': 42161,
-        'symbol': 'ETH',
         'name': 'Arbitrum',
+        'rpc': 'https://arb1.arbitrum.io/rpc',
+        'chainId': '0xa4b1',
+        'symbol': 'ETH',
         'color': '#28A0F0'
     },
     'optimism': {
-        'rpc': 'https://mainnet.optimism.io',
-        'chain_id': 10,
-        'symbol': 'ETH',
         'name': 'Optimism',
+        'rpc': 'https://mainnet.optimism.io',
+        'chainId': '0xa',
+        'symbol': 'ETH',
         'color': '#FF0420'
     },
     'avalanche': {
-        'rpc': 'https://api.avax.network/ext/bc/C/rpc',
-        'chain_id': 43114,
-        'symbol': 'AVAX',
         'name': 'Avalanche',
+        'rpc': 'https://api.avax.network/ext/bc/C/rpc',
+        'chainId': '0xa86a',
+        'symbol': 'AVAX',
         'color': '#E84142'
     },
     'fantom': {
-        'rpc': 'https://rpc.ftm.tools',
-        'chain_id': 250,
-        'symbol': 'FTM',
         'name': 'Fantom',
+        'rpc': 'https://rpc.ftm.tools',
+        'chainId': '0xfa',
+        'symbol': 'FTM',
         'color': '#1969FF'
     },
     'moonbeam': {
-        'rpc': 'https://rpc.api.moonbeam.network',
-        'chain_id': 1284,
-        'symbol': 'GLMR',
         'name': 'Moonbeam',
-        'color': '#1B3B6F'
+        'rpc': 'https://rpc.api.moonbeam.network',
+        'chainId': '0x504',
+        'symbol': 'GLMR',
+        'color': '#53CBC8'
     },
     'celo': {
-        'rpc': 'https://forno.celo.org',
-        'chain_id': 42220,
-        'symbol': 'CELO',
         'name': 'Celo',
-        'color': '#FBCC5C'
+        'rpc': 'https://forno.celo.org',
+        'chainId': '0xa4ec',
+        'symbol': 'CELO',
+        'color': '#FCFF52'
     },
     'aurora': {
-        'rpc': 'https://mainnet.aurora.dev',
-        'chain_id': 1313161554,
-        'symbol': 'ETH',
         'name': 'Aurora',
+        'rpc': 'https://mainnet.aurora.dev',
+        'chainId': '0x4e454152',
+        'symbol': 'ETH',
         'color': '#70D44B'
     },
     'polygon_zkevm': {
-        'rpc': 'https://zkevm-rpc.com',
-        'chain_id': 1101,
-        'symbol': 'ETH',
         'name': 'Polygon zkEVM',
+        'rpc': 'https://zkevm-rpc.com',
+        'chainId': '0x44d',
+        'symbol': 'ETH',
         'color': '#8247E5'
     },
     'linea': {
-        'rpc': 'https://rpc.linea.build',
-        'chain_id': 59144,
-        'symbol': 'ETH',
         'name': 'Linea',
-        'color': '#121212'
+        'rpc': 'https://rpc.linea.build',
+        'chainId': '0xe708',
+        'symbol': 'ETH',
+        'color': '#61DFFF'
     },
     'base': {
-        'rpc': 'https://mainnet.base.org',
-        'chain_id': 8453,
-        'symbol': 'ETH',
         'name': 'Base',
+        'rpc': 'https://mainnet.base.org',
+        'chainId': '0x2105',
+        'symbol': 'ETH',
         'color': '#0052FF'
     },
     'scroll': {
-        'rpc': 'https://rpc.scroll.io',
-        'chain_id': 534352,
-        'symbol': 'ETH',
         'name': 'Scroll',
+        'rpc': 'https://rpc.scroll.io',
+        'chainId': '0x82750',
+        'symbol': 'ETH',
         'color': '#FFEEDA'
     },
     'zksync': {
-        'rpc': 'https://mainnet.era.zksync.io',
-        'chain_id': 324,
-        'symbol': 'ETH',
         'name': 'zkSync Era',
+        'rpc': 'https://mainnet.era.zksync.io',
+        'chainId': '0x144',
+        'symbol': 'ETH',
         'color': '#8C8DFC'
     }
 }
 
-
 @app.route('/')
 def index():
-    """Render main page"""
     return render_template('index.html')
 
-
-@app.route('/api/chains')
+@app.route('/api/chains', methods=['GET'])
 def get_chains():
-    """Get available chains"""
-    return jsonify({
-        'chains': CHAINS,
-        'fee_percentage': FEE_PERCENTAGE * 100,
-        'fee_address': FEE_ADDRESS
-    })
-
+    return jsonify(CHAINS)
 
 @app.route('/api/balances', methods=['POST'])
 def get_balances():
-    """Get balances for a given address across all chains"""
     try:
         data = request.get_json()
-        address = data.get('address', '').strip()
-
-        if not address:
-            return jsonify({'error': 'Address is required'}), 400
-
-        # Validate address
-        if not Web3.is_address(address):
+        address = data.get('address', '')
+        selected_chains = data.get('chains', list(CHAINS.keys()))
+        
+        if not address or not Web3.is_address(address):
             return jsonify({'error': 'Invalid address'}), 400
-
-        # Convert to checksum address
+        
         checksum_address = Web3.to_checksum_address(address)
-
         balances = []
-        chains_with_balance = 0
-        total_balance = 0.0
-
-        for chain_key, chain_config in CHAINS.items():
+        total_balance = 0
+        
+        for chain_key in selected_chains:
+            if chain_key not in CHAINS:
+                continue
+            chain = CHAINS[chain_key]
             try:
-                # Connect to chain with timeout
-                w3 = Web3(Web3.HTTPProvider(chain_config['rpc'], request_kwargs={'timeout': 10}))
-
-                if not w3.is_connected():
-                    print(f"Failed to connect to {chain_config['name']}")
-                    continue
-
-                # Get balance
-                balance_wei = w3.eth.get_balance(checksum_address)
-                balance_ether = float(w3.from_wei(balance_wei, 'ether'))
-
-                if balance_ether > 0:
-                    chains_with_balance += 1
-                    total_balance += balance_ether
+                w3 = Web3(Web3.HTTPProvider(chain['rpc'], request_kwargs={'timeout': 10}))
+                if w3.is_connected():
+                    balance_wei = w3.eth.get_balance(checksum_address)
+                    balance_eth = float(w3.from_wei(balance_wei, 'ether'))
+                    total_balance += balance_eth
                     balances.append({
-                        'chain': chain_config['name'],
+                        'chain': chain['name'],
                         'chain_key': chain_key,
-                        'chain_id': chain_config['chain_id'],
-                        'symbol': chain_config['symbol'],
-                        'color': chain_config['color'],
-                        'balance': balance_ether,  # Float for frontend
-                        'balance_wei': str(balance_wei)  # String for precision
+                        'symbol': chain['symbol'],
+                        'balance': balance_eth,
+                        'color': chain['color'],
+                        'chainId': chain['chainId']
                     })
             except Exception as e:
-                print(f"Error checking {chain_config['name']}: {str(e)}")
-                continue
-
-        # Calculate fee and amount after fee
-        total_fee = total_balance * FEE_PERCENTAGE
-        total_after_fee = total_balance - total_fee
-
+                print(f"Error on {chain['name']}: {str(e)}")
+                balances.append({
+                    'chain': chain['name'],
+                    'chain_key': chain_key,
+                    'symbol': chain['symbol'],
+                    'balance': 0,
+                    'color': chain['color'],
+                    'chainId': chain['chainId'],
+                    'error': str(e)
+                })
+        
+        fee = total_balance * FEE_PERCENTAGE
+        after_fee = total_balance - fee
+        
         return jsonify({
             'balances': balances,
-            'chains_with_balance': chains_with_balance,
             'total_balance': total_balance,
-            'total_fee': total_fee,
-            'total_after_fee': total_after_fee
+            'fee': fee,
+            'after_fee': after_fee,
+            'chains_scanned': len(selected_chains)
         })
-
+        
     except Exception as e:
-        print(f"Error in get_balances: {str(e)}")
         return jsonify({'error': str(e)}), 500
-
 
 @app.route('/api/aggregate', methods=['POST'])
 def aggregate_dust():
-    """Prepare transactions for aggregating dust from multiple chains"""
     try:
         data = request.get_json()
-        address = data.get('address', '').strip()
-        target_address = data.get('target_address', '').strip()
-
-        if not address:
-            return jsonify({'error': 'Source address is required'}), 400
-
-        if not target_address:
-            return jsonify({'error': 'Target address is required'}), 400
-
-        # Validate addresses
-        if not Web3.is_address(address):
+        address = data.get('address', '')
+        destination = data.get('destination', '')
+        balances = data.get('balances', [])
+        
+        if not address or not Web3.is_address(address):
             return jsonify({'error': 'Invalid source address'}), 400
-
-        if not Web3.is_address(target_address):
-            return jsonify({'error': 'Invalid target address'}), 400
-
-        # Convert to checksum addresses
-        checksum_address = Web3.to_checksum_address(address)
-        checksum_target = Web3.to_checksum_address(target_address)
-        checksum_fee_address = Web3.to_checksum_address(FEE_ADDRESS)
-
+        if not destination or not Web3.is_address(destination):
+            return jsonify({'error': 'Invalid destination address'}), 400
+        
+        checksum_dest = Web3.to_checksum_address(destination)
+        checksum_fee = Web3.to_checksum_address(FEE_ADDRESS)
+        
         transactions = []
-        total_amount = 0.0
-        total_fee = 0.0
-
-        for chain_key, chain_config in CHAINS.items():
-            try:
-                # Connect to chain with timeout
-                w3 = Web3(Web3.HTTPProvider(chain_config['rpc'], request_kwargs={'timeout': 10}))
-
-                if not w3.is_connected():
-                    print(f"Failed to connect to {chain_config['name']}")
-                    continue
-
-                # Get balance
-                balance_wei = w3.eth.get_balance(checksum_address)
-                balance_ether = float(w3.from_wei(balance_wei, 'ether'))
-
-                # Only process if balance > 0
-                if balance_ether > 0:
-                    # Estimate gas cost
-                    gas_price = w3.eth.gas_price
-                    gas_limit = 21000  # Standard transfer
-                    gas_cost_wei = gas_price * gas_limit * 2  # Two transfers (to target + fee)
-                    gas_cost_ether = float(w3.from_wei(gas_cost_wei, 'ether'))
-
-                    # Skip if gas cost is higher than balance
-                    if gas_cost_ether >= balance_ether:
-                        print(f"Skipping {chain_config['name']}: gas cost ({gas_cost_ether}) >= balance ({balance_ether})")
-                        continue
-
-                    # Calculate amounts
-                    available_balance = balance_ether - gas_cost_ether
-                    fee_amount = available_balance * FEE_PERCENTAGE
-                    user_amount = available_balance - fee_amount
-
-                    total_amount += user_amount
-                    total_fee += fee_amount
-
-                    # Get nonce
-                    nonce = w3.eth.get_transaction_count(checksum_address)
-
+        for b in balances:
+            bal = float(b.get('balance', 0))
+            if bal > 0.0001:
+                fee_amount = bal * FEE_PERCENTAGE
+                user_amount = bal - fee_amount - 0.0001
+                if user_amount > 0:
                     transactions.append({
-                        'chain': chain_config['name'],
-                        'chain_key': chain_key,
-                        'chain_id': chain_config['chain_id'],
-                        'symbol': chain_config['symbol'],
-                        'color': chain_config['color'],
-                        'balance': balance_ether,
-                        'amount': user_amount,
-                        'fee': fee_amount,
-                        'gas_cost': gas_cost_ether,
-                        'from_address': checksum_address,
-                        'to_address': checksum_target,
-                        'fee_address': checksum_fee_address,
-                        'nonce': nonce,
-                        'gas_price': gas_price,
-                        'gas_limit': gas_limit,
-                        'status': 'pending'
+                        'chain': b['chain'],
+                        'chainId': b['chainId'],
+                        'to': checksum_dest,
+                        'value': str(user_amount),
+                        'fee_to': checksum_fee,
+                        'fee_value': str(fee_amount)
                     })
-            except Exception as e:
-                print(f"Error processing {chain_config['name']}: {str(e)}")
-                continue
-
+        
         return jsonify({
             'transactions': transactions,
-            'total_amount': total_amount,
-            'total_fee': total_fee,
-            'fee_address': FEE_ADDRESS,
-            'status': 'prepared'
+            'total_transactions': len(transactions)
         })
-
+        
     except Exception as e:
-        print(f"Error in aggregate_dust: {str(e)}")
         return jsonify({'error': str(e)}), 500
-
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))

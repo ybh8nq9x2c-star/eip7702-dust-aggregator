@@ -5,113 +5,120 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dust.zip - EIP-7702 Dust Aggregator</title>
     <link rel="stylesheet" href="/static/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div class="app">
+    <div class="container">
         <!-- Header -->
         <header class="header">
             <div class="logo">
                 <span class="logo-icon">⚡</span>
-                <span class="logo-text">Dust.zip</span>
+                <span class="logo-text">Dust<span class="accent">.zip</span></span>
             </div>
-            <div class="header-right">
-                <button id="connectWallet" class="btn btn-primary">
-                    <span>🦊</span> Connect Wallet
-                </button>
-                <div id="walletBanner" class="wallet-banner hidden">
-                    <span id="walletAddress"></span>
-                    <button id="disconnectWallet" class="btn btn-small">✕</button>
-                </div>
-            </div>
+            <button id="connectWallet" class="btn-connect">
+                <span class="wallet-icon">🦊</span>
+                <span id="walletBtnText">Connect Wallet</span>
+            </button>
         </header>
 
         <!-- Main Content -->
-        <main class="main">
-            <!-- Hero Section -->
-            <section class="hero">
+        <main class="main-content">
+            <div class="hero">
                 <h1>Aggregate Your Dust</h1>
-                <p>Collect small balances from 15+ EVM chains into one address</p>
-            </section>
+                <p>Collect small balances from 15 EVM chains into one</p>
+            </div>
 
-            <!-- Input Section -->
-            <section class="input-section">
-                <div class="input-group">
-                    <label for="walletAddressInput">Wallet Address</label>
-                    <input type="text" id="walletAddressInput" placeholder="0x... or connect wallet" autocomplete="off">
+            <!-- Wallet Input -->
+            <div class="input-section">
+                <label for="walletAddress">Wallet Address</label>
+                <input type="text" id="walletAddress" placeholder="0x... or connect wallet above">
+            </div>
+
+            <!-- Chain Selection -->
+            <div class="chain-selection">
+                <div class="chain-header">
+                    <h3>Select Chains to Scan</h3>
+                    <div class="chain-actions">
+                        <button id="selectAll" class="btn-small">Select All</button>
+                        <button id="deselectAll" class="btn-small">Deselect All</button>
+                    </div>
                 </div>
-                <button id="scanBalances" class="btn btn-large btn-primary">
-                    🔍 Scan All Chains
+                <div class="chain-grid" id="chainGrid">
+                    <!-- Chains will be populated by JS -->
+                </div>
+            </div>
+
+            <!-- Scan Button -->
+            <button id="scanBtn" class="btn-primary">
+                <span class="btn-icon">🔍</span>
+                Scan Selected Chains
+            </button>
+
+            <!-- Loading -->
+            <div id="loading" class="loading hidden">
+                <div class="spinner"></div>
+                <p>Scanning chains...</p>
+            </div>
+
+            <!-- Results -->
+            <div id="results" class="results hidden">
+                <div class="results-header">
+                    <h2>Dust Found</h2>
+                </div>
+
+                <!-- Total Value Display -->
+                <div class="total-value-card">
+                    <div class="total-eth">
+                        <span class="label">Total Value</span>
+                        <span class="value" id="totalEth">0.0000 ETH</span>
+                    </div>
+                    <div class="total-usd">
+                        <span class="value" id="totalUsd">$0.00</span>
+                    </div>
+                    <div class="fee-info">
+                        <span class="fee-label">Fee (5%):</span>
+                        <span id="feeAmount">0.0000 ETH ($0.00)</span>
+                    </div>
+                    <div class="after-fee">
+                        <span class="fee-label">You Receive:</span>
+                        <span id="afterFeeAmount">0.0000 ETH ($0.00)</span>
+                    </div>
+                </div>
+
+                <!-- Balance List -->
+                <div class="balance-list" id="balanceList">
+                    <!-- Balances will be populated by JS -->
+                </div>
+
+                <!-- Destination -->
+                <div class="destination-section">
+                    <label for="destinationAddress">Destination Address</label>
+                    <input type="text" id="destinationAddress" placeholder="0x... where to send aggregated funds">
+                    <select id="destinationChain">
+                        <option value="ethereum">Ethereum</option>
+                        <option value="polygon">Polygon</option>
+                        <option value="bsc">BNB Chain</option>
+                        <option value="arbitrum">Arbitrum</option>
+                        <option value="optimism">Optimism</option>
+                        <option value="base">Base</option>
+                    </select>
+                </div>
+
+                <!-- Aggregate Button -->
+                <button id="aggregateBtn" class="btn-aggregate">
+                    <span class="btn-icon">⚡</span>
+                    Aggregate Now
                 </button>
-            </section>
+            </div>
 
-            <!-- Stats Section -->
-            <section class="stats-section">
-                <div class="stat-card">
-                    <div class="stat-value" id="chainsWithBalance">0</div>
-                    <div class="stat-label">Chains with Balance</div>
-                </div>
-            </section>
-
-            <!-- Balances Section -->
-            <section id="balancesSection" class="balances-section hidden">
-                <h2>💰 Found Balances</h2>
-                <div id="balancesList" class="balances-grid"></div>
-            </section>
-
-            <!-- Aggregate Section -->
-            <section id="aggregateSection" class="aggregate-section hidden">
-                <h2>🎯 Aggregate Dust</h2>
-                
-                <div class="summary-cards">
-                    <div class="summary-card">
-                        <div class="summary-label">Total Balance</div>
-                        <div class="summary-value"><span id="totalBalance">0</span></div>
-                    </div>
-                    <div class="summary-card">
-                        <div class="summary-label">Fee (5%)</div>
-                        <div class="summary-value"><span id="estimatedFee">0</span></div>
-                    </div>
-                    <div class="summary-card highlight">
-                        <div class="summary-label">You Receive</div>
-                        <div class="summary-value"><span id="youReceive">0</span></div>
-                    </div>
-                </div>
-
-                <div class="input-group">
-                    <label for="targetAddress">Destination Address</label>
-                    <input type="text" id="targetAddress" placeholder="0x... where to send your dust" autocomplete="off">
-                </div>
-
-                <button id="aggregateDust" class="btn btn-large btn-success">
-                    ⚡ Aggregate Now
-                </button>
-            </section>
-
-            <!-- Results Section -->
-            <section id="resultsSection" class="results-section hidden">
-                <h2>📋 Transaction Results</h2>
-                <div id="resultsList" class="results-grid"></div>
-            </section>
+            <!-- Status Messages -->
+            <div id="status" class="status hidden"></div>
         </main>
 
         <!-- Footer -->
         <footer class="footer">
             <p>Powered by EIP-7702 | 15 EVM Chains Supported</p>
         </footer>
-
-        <!-- Loading Overlay -->
-        <div id="loading" class="loading-overlay hidden">
-            <div class="loading-content">
-                <div class="spinner"></div>
-                <p id="loadingText">Loading...</p>
-            </div>
-        </div>
-
-        <!-- Error Toast -->
-        <div id="error" class="error-toast hidden">
-            <span id="errorMessage"></span>
-            <button id="closeError" class="btn btn-small">✕</button>
-        </div>
     </div>
 
     <script src="/static/js/app.js"></script>
