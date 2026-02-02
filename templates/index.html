@@ -57,7 +57,7 @@
             <!-- Loading -->
             <div id="loading" class="loading hidden">
                 <div class="spinner"></div>
-                <p>Scanning chains...</p>
+                <p id="loadingText">Scanning chains...</p>
             </div>
 
             <!-- Results -->
@@ -65,7 +65,7 @@
                 <div class="results-header">
                     <h2>Dust Found</h2>
                 </div>
-
+                
                 <!-- Total Value Display -->
                 <div class="total-value-card">
                     <div class="total-eth">
@@ -121,6 +121,36 @@
         </footer>
     </div>
 
-    <script src="/static/js/app.js"></script>
+    <!-- Ethers.js with fallback -->
+    <script>
+        function loadScript(src, fallback) {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = src;
+                script.onload = resolve;
+                script.onerror = () => {
+                    if (fallback) {
+                        loadScript(fallback).then(resolve).catch(reject);
+                    } else {
+                        reject(new Error('Failed to load: ' + src));
+                    }
+                };
+                document.head.appendChild(script);
+            });
+        }
+        
+        loadScript(
+            'https://cdnjs.cloudflare.com/ajax/libs/ethers/6.9.0/ethers.umd.min.js',
+            'https://cdn.jsdelivr.net/npm/ethers@6.9.0/dist/ethers.umd.min.js'
+        ).then(() => {
+            console.log('Ethers.js loaded:', typeof ethers !== 'undefined');
+            const appScript = document.createElement('script');
+            appScript.src = '/static/js/app.js';
+            document.body.appendChild(appScript);
+        }).catch((err) => {
+            console.error('Failed to load Ethers.js:', err);
+            document.body.innerHTML = '<div style="padding:40px;text-align:center;color:#ff6b6b;"><h2>Error loading Web3 library</h2><p>Please refresh the page.</p></div>';
+        });
+    </script>
 </body>
 </html>

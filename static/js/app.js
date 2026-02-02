@@ -7,43 +7,43 @@ let ethPrice = 0;
 let chains = {};
 let selectedChains = new Set();
 
-// DOM Elements
-const connectBtn = document.getElementById('connectWallet');
-const walletBtnText = document.getElementById('walletBtnText');
-const walletInput = document.getElementById('walletAddress');
-const chainGrid = document.getElementById('chainGrid');
-const selectAllBtn = document.getElementById('selectAll');
-const deselectAllBtn = document.getElementById('deselectAll');
-const scanBtn = document.getElementById('scanBtn');
-const loadingDiv = document.getElementById('loading');
-const resultsDiv = document.getElementById('results');
-const balanceList = document.getElementById('balanceList');
-const totalEthSpan = document.getElementById('totalEth');
-const totalUsdSpan = document.getElementById('totalUsd');
-const feeAmountSpan = document.getElementById('feeAmount');
-const afterFeeSpan = document.getElementById('afterFeeAmount');
-const destinationInput = document.getElementById('destinationAddress');
-const aggregateBtn = document.getElementById('aggregateBtn');
-const statusDiv = document.getElementById('status');
+// Wait for DOM to be ready
+document.addEventListener('DOMContentLoaded', init);
 
-// Initialize
-document.addEventListener('DOMContentLoaded', async () => {
+async function init() {
+    console.log('Initializing app...');
     await fetchEthPrice();
     await fetchChains();
     setupEventListeners();
-});
+    console.log('App initialized, ETH price:', ethPrice);
+}
 
-// Fetch ETH price from CoinGecko
+// Fetch ETH price from multiple sources
 async function fetchEthPrice() {
-    try {
-        const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
-        const data = await response.json();
-        ethPrice = data.ethereum.usd;
-        console.log('ETH Price:', ethPrice);
-    } catch (error) {
-        console.error('Failed to fetch ETH price:', error);
-        ethPrice = 2500;
+    const apis = [
+        'https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd',
+        'https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD'
+    ];
+    
+    for (const api of apis) {
+        try {
+            const response = await fetch(api);
+            const data = await response.json();
+            if (data.ethereum && data.ethereum.usd) {
+                ethPrice = data.ethereum.usd;
+            } else if (data.USD) {
+                ethPrice = data.USD;
+            }
+            if (ethPrice > 0) {
+                console.log('ETH Price fetched:', ethPrice);
+                return;
+            }
+        } catch (error) {
+            console.warn('Price API failed:', api, error);
+        }
     }
+    ethPrice = 2500;
+    console.log('Using fallback ETH price:', ethPrice);
 }
 
 // Fetch chains from API
@@ -60,18 +60,19 @@ async function fetchChains() {
 
 // Populate chain selection grid
 function populateChainGrid() {
+    const chainGrid = document.getElementById('chainGrid');
+    if (!chainGrid) return;
+    
     chainGrid.innerHTML = '';
     for (const [key, chain] of Object.entries(chains)) {
         selectedChains.add(key);
         const item = document.createElement('div');
         item.className = 'chain-item selected';
         item.dataset.chain = key;
-        item.innerHTML = `
-            <div class="chain-checkbox"></div>
-            <div class="chain-color" style="background: ${chain.color}"></div>
-            <span class="chain-name">${chain.name}</span>
-        `;
-        item.addEventListener('click', () => toggleChain(key, item));
+        item.innerHTML = '<div class="chain-checkbox"></div>' +
+            '<div class="chain-color" style="background:' + chain.color + '"></div>' +
+            '<span class="chain-name">' + chain.name + '</span>';
+        item.addEventListener('click', function() { toggleChain(key, item); });
         chainGrid.appendChild(item);
     }
 }
@@ -89,16 +90,22 @@ function toggleChain(key, item) {
 
 // Setup event listeners
 function setupEventListeners() {
-    connectBtn.addEventListener('click', connectWallet);
-    selectAllBtn.addEventListener('click', selectAllChains);
-    deselectAllBtn.addEventListener('click', deselectAllChains);
-    scanBtn.addEventListener('click', scanBalances);
-    aggregateBtn.addEventListener('click', aggregateDust);
+    const connectBtn = document.getElementById('connectWallet');
+    const selectAllBtn = document.getElementById('selectAll');
+    const deselectAllBtn = document.getElementById('deselectAll');
+    const scanBtn = document.getElementById('scanBtn');
+    const aggregateBtn = document.getElementById('aggregateBtn');
+    
+    if (connectBtn) connectBtn.addEventListener('click', connectWallet);
+    if (selectAllBtn) selectAllBtn.addEventListener('click', selectAllChains);
+    if (deselectAllBtn) deselectAllBtn.addEventListener('click', deselectAllChains);
+    if (scanBtn) scanBtn.addEventListener('click', scanBalances);
+    if (aggregateBtn) aggregateBtn.addEventListener('click', aggregateDust);
 }
 
 // Select all chains
 function selectAllChains() {
-    document.querySelectorAll('.chain-item').forEach(item => {
+    document.querySelectorAll('.chain-item').forEach(function(item) {
         const key = item.dataset.chain;
         selectedChains.add(key);
         item.classList.add('selected');
@@ -107,7 +114,7 @@ function selectAllChains() {
 
 // Deselect all chains
 function deselectAllChains() {
-    document.querySelectorAll('.chain-item').forEach(item => {
+    document.querySelectorAll('.chain-item').forEach(function(item) {
         const key = item.dataset.chain;
         selectedChains.delete(key);
         item.classList.remove('selected');
@@ -116,68 +123,104 @@ function deselectAllChains() {
 
 // Connect wallet
 async function connectWallet() {
+    console.log('Connecting wallet...');
+    
     if (typeof window.ethereum === 'undefined') {
-        showStatus('Please install MetaMask!', 'error');
+        showStatus('Please install MetaMask or another Web3 wallet!', 'error');
         return;
     }
+    
     try {
+        if (typeof ethers === 'undefined') {
+            showStatus('Web3 library not loaded. Please refresh.', 'error');
+            return;
+        }
+        
         provider = new ethers.BrowserProvider(window.ethereum);
         const accounts = await provider.send('eth_requestAccounts', []);
         connectedAddress = accounts[0];
         signer = await provider.getSigner();
-        walletBtnText.textContent = shortenAddress(connectedAddress);
-        connectBtn.classList.add('connected');
-        walletInput.value = connectedAddress;
-        showStatus('Wallet connected!', 'success');
+        
+        const walletBtnText = document.getElementById('walletBtnText');
+        const connectBtn = document.getElementById('connectWallet');
+        const walletInput = document.getElementById('walletAddress');
+        
+        if (walletBtnText) walletBtnText.textContent = shortenAddress(connectedAddress);
+        if (connectBtn) connectBtn.classList.add('connected');
+        if (walletInput) walletInput.value = connectedAddress;
+        
+        showStatus('Wallet connected: ' + shortenAddress(connectedAddress), 'success');
+        console.log('Wallet connected:', connectedAddress);
+        
     } catch (error) {
         console.error('Connection error:', error);
-        showStatus('Failed to connect wallet', 'error');
+        showStatus('Failed to connect wallet: ' + error.message, 'error');
     }
 }
 
 // Shorten address
 function shortenAddress(addr) {
+    if (!addr) return '';
     return addr.slice(0, 6) + '...' + addr.slice(-4);
 }
 
 // Format ETH value
 function formatEth(value) {
-    return parseFloat(value).toFixed(6);
+    const num = parseFloat(value) || 0;
+    return num.toFixed(6);
 }
 
 // Format USD value
 function formatUsd(ethValue) {
-    const usd = parseFloat(ethValue) * ethPrice;
-    return '$' + usd.toFixed(2);
+    const eth = parseFloat(ethValue) || 0;
+    const usd = eth * ethPrice;
+    return '$' + usd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-// Show status
+// Show status message
 function showStatus(message, type) {
+    const statusDiv = document.getElementById('status');
+    if (!statusDiv) return;
+    
     statusDiv.textContent = message;
     statusDiv.className = 'status ' + type;
     statusDiv.classList.remove('hidden');
+    
     if (type === 'success') {
-        setTimeout(() => statusDiv.classList.add('hidden'), 3000);
+        setTimeout(function() { statusDiv.classList.add('hidden'); }, 3000);
     }
 }
 
 // Scan balances
 async function scanBalances() {
-    const address = walletInput.value.trim();
+    const walletInput = document.getElementById('walletAddress');
+    const address = walletInput ? walletInput.value.trim() : '';
+    
     if (!address || !address.startsWith('0x') || address.length !== 42) {
         showStatus('Please enter a valid wallet address', 'error');
         return;
     }
+    
     if (selectedChains.size === 0) {
         showStatus('Please select at least one chain', 'error');
         return;
     }
-    loadingDiv.classList.remove('hidden');
-    resultsDiv.classList.add('hidden');
-    statusDiv.classList.add('hidden');
-    scanBtn.disabled = true;
+    
+    const loadingDiv = document.getElementById('loading');
+    const loadingText = document.getElementById('loadingText');
+    const resultsDiv = document.getElementById('results');
+    const scanBtn = document.getElementById('scanBtn');
+    const statusDiv = document.getElementById('status');
+    
+    if (loadingDiv) loadingDiv.classList.remove('hidden');
+    if (resultsDiv) resultsDiv.classList.add('hidden');
+    if (statusDiv) statusDiv.classList.add('hidden');
+    if (scanBtn) scanBtn.disabled = true;
+    if (loadingText) loadingText.textContent = 'Scanning ' + selectedChains.size + ' chains...';
+    
     try {
         await fetchEthPrice();
+        
         const response = await fetch('/api/balances', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -186,18 +229,22 @@ async function scanBalances() {
                 chains: Array.from(selectedChains)
             })
         });
+        
         const data = await response.json();
+        
         if (data.error) {
             throw new Error(data.error);
         }
+        
         balances = data.balances || [];
         displayResults(data);
+        
     } catch (error) {
         console.error('Scan error:', error);
-        showStatus('Failed to scan balances: ' + error.message, 'error');
+        showStatus('Failed to scan: ' + error.message, 'error');
     } finally {
-        loadingDiv.classList.add('hidden');
-        scanBtn.disabled = false;
+        if (loadingDiv) loadingDiv.classList.add('hidden');
+        if (scanBtn) scanBtn.disabled = false;
     }
 }
 
@@ -206,53 +253,74 @@ function displayResults(data) {
     const totalEth = parseFloat(data.total_balance) || 0;
     const fee = totalEth * 0.05;
     const afterFee = totalEth - fee;
-    totalEthSpan.textContent = formatEth(totalEth) + ' ETH';
-    totalUsdSpan.textContent = formatUsd(totalEth);
-    feeAmountSpan.textContent = formatEth(fee) + ' ETH (' + formatUsd(fee) + ')';
-    afterFeeSpan.textContent = formatEth(afterFee) + ' ETH (' + formatUsd(afterFee) + ')';
-    balanceList.innerHTML = '';
-    if (balances.length === 0) {
-        balanceList.innerHTML = '<p style="text-align:center;color:rgba(255,255,255,0.5);padding:20px;">No dust found on selected chains</p>';
-    } else {
-        balances.forEach(b => {
-            const bal = parseFloat(b.balance) || 0;
-            if (bal > 0) {
+    
+    const totalEthSpan = document.getElementById('totalEth');
+    const totalUsdSpan = document.getElementById('totalUsd');
+    const feeAmountSpan = document.getElementById('feeAmount');
+    const afterFeeSpan = document.getElementById('afterFeeAmount');
+    const balanceList = document.getElementById('balanceList');
+    const resultsDiv = document.getElementById('results');
+    
+    if (totalEthSpan) totalEthSpan.textContent = formatEth(totalEth) + ' ETH';
+    if (totalUsdSpan) totalUsdSpan.textContent = formatUsd(totalEth);
+    if (feeAmountSpan) feeAmountSpan.textContent = formatEth(fee) + ' ETH (' + formatUsd(fee) + ')';
+    if (afterFeeSpan) afterFeeSpan.textContent = formatEth(afterFee) + ' ETH (' + formatUsd(afterFee) + ')';
+    
+    if (balanceList) {
+        balanceList.innerHTML = '';
+        
+        const chainsWithBalance = balances.filter(function(b) { return parseFloat(b.balance) > 0; });
+        
+        if (chainsWithBalance.length === 0) {
+            balanceList.innerHTML = '<p style="text-align:center;color:rgba(255,255,255,0.5);padding:20px;">No dust found on selected chains</p>';
+        } else {
+            chainsWithBalance.forEach(function(b) {
+                const bal = parseFloat(b.balance) || 0;
                 const item = document.createElement('div');
                 item.className = 'balance-item';
-                item.innerHTML = `
-                    <div class="balance-chain">
-                        <div class="chain-dot" style="background: ${b.color}"></div>
-                        <span class="chain-name">${b.chain}</span>
-                    </div>
-                    <div class="balance-values">
-                        <div class="balance-eth">${formatEth(bal)} ${b.symbol}</div>
-                        <div class="balance-usd">${formatUsd(bal)}</div>
-                    </div>
-                `;
+                item.innerHTML = '<div class="balance-chain">' +
+                    '<div class="chain-dot" style="background:' + b.color + '"></div>' +
+                    '<span class="chain-name">' + b.chain + '</span>' +
+                '</div>' +
+                '<div class="balance-values">' +
+                    '<div class="balance-eth">' + formatEth(bal) + ' ' + b.symbol + '</div>' +
+                    '<div class="balance-usd">' + formatUsd(bal) + '</div>' +
+                '</div>';
                 balanceList.appendChild(item);
-            }
-        });
+            });
+        }
     }
-    resultsDiv.classList.remove('hidden');
+    
+    if (resultsDiv) resultsDiv.classList.remove('hidden');
 }
 
 // Aggregate dust
 async function aggregateDust() {
-    const destination = destinationInput.value.trim();
+    const destinationInput = document.getElementById('destinationAddress');
+    const destination = destinationInput ? destinationInput.value.trim() : '';
+    
     if (!destination || !destination.startsWith('0x') || destination.length !== 42) {
         showStatus('Please enter a valid destination address', 'error');
         return;
     }
-    if (balances.length === 0) {
+    
+    const chainsWithBalance = balances.filter(function(b) { return parseFloat(b.balance) > 0.0001; });
+    
+    if (chainsWithBalance.length === 0) {
         showStatus('No balances to aggregate', 'error');
         return;
     }
+    
     if (!signer) {
         showStatus('Please connect your wallet first', 'error');
         return;
     }
-    aggregateBtn.disabled = true;
+    
+    const aggregateBtn = document.getElementById('aggregateBtn');
+    if (aggregateBtn) aggregateBtn.disabled = true;
+    
     showStatus('Preparing transactions...', 'info');
+    
     try {
         const response = await fetch('/api/aggregate', {
             method: 'POST',
@@ -261,17 +329,21 @@ async function aggregateDust() {
                 address: connectedAddress,
                 destination: destination,
                 destination_chain: document.getElementById('destinationChain').value,
-                balances: balances
+                balances: chainsWithBalance
             })
         });
+        
         const data = await response.json();
+        
         if (data.error) {
             throw new Error(data.error);
         }
+        
         let successCount = 0;
         for (const tx of data.transactions) {
             try {
                 showStatus('Switching to ' + tx.chain + '...', 'info');
+                
                 try {
                     await window.ethereum.request({
                         method: 'wallet_switchEthereumChain',
@@ -284,25 +356,32 @@ async function aggregateDust() {
                     }
                     throw switchError;
                 }
-                showStatus('Sending transaction on ' + tx.chain + '...', 'info');
+                
+                showStatus('Sending on ' + tx.chain + '...', 'info');
+                
                 provider = new ethers.BrowserProvider(window.ethereum);
                 signer = await provider.getSigner();
+                
                 const txResponse = await signer.sendTransaction({
                     to: tx.to,
                     value: ethers.parseEther(tx.value)
                 });
-                showStatus('Waiting for confirmation on ' + tx.chain + '...', 'info');
+                
+                showStatus('Confirming on ' + tx.chain + '...', 'info');
                 await txResponse.wait();
                 successCount++;
+                
             } catch (txError) {
-                console.error('Transaction error on ' + tx.chain + ':', txError);
+                console.error('TX error on ' + tx.chain + ':', txError);
             }
         }
-        showStatus('Aggregation complete! ' + successCount + ' transactions sent.', 'success');
+        
+        showStatus('Complete! ' + successCount + '/' + data.transactions.length + ' transactions sent.', 'success');
+        
     } catch (error) {
         console.error('Aggregation error:', error);
         showStatus('Aggregation failed: ' + error.message, 'error');
     } finally {
-        aggregateBtn.disabled = false;
+        if (aggregateBtn) aggregateBtn.disabled = false;
     }
 }
