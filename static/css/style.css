@@ -1,3 +1,7 @@
+/* ============================================
+   DUST.ZIP - Modern Dark Theme
+   ============================================ */
+
 * {
     margin: 0;
     padding: 0;
@@ -6,9 +10,10 @@
 
 body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-    background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #0a0a0a 100%);
-    min-height: 100vh;
+    background: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 50%, #0f0f1a 100%);
     color: #ffffff;
+    min-height: 100vh;
+    line-height: 1.6;
 }
 
 .container {
@@ -31,31 +36,28 @@ body {
     display: flex;
     align-items: center;
     gap: 10px;
+    font-size: 28px;
+    font-weight: 800;
 }
 
 .logo-icon {
     font-size: 32px;
 }
 
-.logo-text {
-    font-size: 28px;
-    font-weight: 800;
-    color: #fff;
-}
-
 .logo-text .accent {
     color: #00ff88;
 }
 
+/* Buttons */
 .btn-connect {
     display: flex;
     align-items: center;
     gap: 8px;
     padding: 12px 24px;
-    background: rgba(255,255,255,0.1);
+    background: linear-gradient(135deg, #1a1a2e, #2a2a4e);
     border: 1px solid rgba(255,255,255,0.2);
     border-radius: 12px;
-    color: #fff;
+    color: white;
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
@@ -63,13 +65,57 @@ body {
 }
 
 .btn-connect:hover {
-    background: rgba(255,255,255,0.2);
-    transform: translateY(-2px);
+    background: linear-gradient(135deg, #2a2a4e, #3a3a6e);
+    border-color: #00ff88;
 }
 
 .btn-connect.connected {
-    background: rgba(0,255,136,0.2);
     border-color: #00ff88;
+    background: linear-gradient(135deg, #0a2a1a, #1a3a2a);
+}
+
+.btn-primary, .btn-aggregate {
+    width: 100%;
+    padding: 18px 32px;
+    background: linear-gradient(135deg, #00ff88, #00cc6a);
+    border: none;
+    border-radius: 16px;
+    color: #000;
+    font-size: 18px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin: 20px 0;
+}
+
+.btn-primary:hover, .btn-aggregate:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px rgba(0,255,136,0.3);
+}
+
+.btn-primary:disabled, .btn-aggregate:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.btn-small {
+    padding: 8px 16px;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 8px;
+    color: white;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-small:hover {
+    background: rgba(255,255,255,0.2);
 }
 
 /* Hero */
@@ -82,15 +128,15 @@ body {
     font-size: 48px;
     font-weight: 800;
     margin-bottom: 10px;
-    background: linear-gradient(135deg, #fff 0%, #00ff88 100%);
+    background: linear-gradient(135deg, #fff, #00ff88);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
 }
 
 .hero p {
-    font-size: 18px;
     color: rgba(255,255,255,0.6);
+    font-size: 18px;
 }
 
 /* Input Section */
@@ -100,10 +146,10 @@ body {
 
 .input-section label {
     display: block;
-    font-size: 14px;
-    font-weight: 600;
-    color: rgba(255,255,255,0.7);
     margin-bottom: 8px;
+    color: rgba(255,255,255,0.7);
+    font-size: 14px;
+    font-weight: 500;
 }
 
 .input-section input {
@@ -112,19 +158,16 @@ body {
     background: rgba(255,255,255,0.05);
     border: 1px solid rgba(255,255,255,0.1);
     border-radius: 12px;
-    color: #fff;
+    color: white;
     font-size: 16px;
-    transition: all 0.3s ease;
+    font-family: monospace;
+    transition: all 0.3s;
 }
 
 .input-section input:focus {
     outline: none;
     border-color: #00ff88;
-    background: rgba(255,255,255,0.1);
-}
-
-.input-section input::placeholder {
-    color: rgba(255,255,255,0.3);
+    background: rgba(0,255,136,0.05);
 }
 
 /* Chain Selection */
@@ -132,95 +175,70 @@ body {
     background: rgba(255,255,255,0.03);
     border: 1px solid rgba(255,255,255,0.1);
     border-radius: 16px;
-    padding: 24px;
-    margin-bottom: 30px;
+    padding: 20px;
+    margin-bottom: 20px;
 }
 
 .chain-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 20px;
+    margin-bottom: 16px;
 }
 
 .chain-header h3 {
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 600;
 }
 
 .chain-actions {
     display: flex;
-    gap: 10px;
-}
-
-.btn-small {
-    padding: 8px 16px;
-    background: rgba(255,255,255,0.1);
-    border: 1px solid rgba(255,255,255,0.2);
-    border-radius: 8px;
-    color: #fff;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.btn-small:hover {
-    background: rgba(255,255,255,0.2);
+    gap: 8px;
 }
 
 .chain-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: 12px;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px;
 }
 
 .chain-item {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 12px 16px;
-    background: rgba(255,255,255,0.05);
+    gap: 8px;
+    padding: 12px;
+    background: rgba(255,255,255,0.03);
     border: 1px solid rgba(255,255,255,0.1);
     border-radius: 10px;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: all 0.2s;
 }
 
 .chain-item:hover {
-    background: rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.08);
 }
 
 .chain-item.selected {
-    background: rgba(0,255,136,0.1);
     border-color: #00ff88;
-}
-
-.chain-item input[type="checkbox"] {
-    display: none;
+    background: rgba(0,255,136,0.1);
 }
 
 .chain-checkbox {
-    width: 20px;
-    height: 20px;
+    width: 18px;
+    height: 18px;
     border: 2px solid rgba(255,255,255,0.3);
-    border-radius: 6px;
+    border-radius: 4px;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.3s ease;
+    font-size: 12px;
+    color: transparent;
 }
 
 .chain-item.selected .chain-checkbox {
-    background: #00ff88;
     border-color: #00ff88;
-}
-
-.chain-item.selected .chain-checkbox::after {
-    content: "✓";
+    background: #00ff88;
     color: #000;
-    font-size: 12px;
-    font-weight: bold;
 }
 
 .chain-color {
@@ -230,43 +248,8 @@ body {
 }
 
 .chain-name {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 500;
-    flex: 1;
-}
-
-/* Buttons */
-.btn-primary {
-    width: 100%;
-    padding: 18px 32px;
-    background: linear-gradient(135deg, #00ff88 0%, #00cc6a 100%);
-    border: none;
-    border-radius: 14px;
-    color: #000;
-    font-size: 18px;
-    font-weight: 700;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    transition: all 0.3s ease;
-    margin-bottom: 30px;
-}
-
-.btn-primary:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 10px 40px rgba(0,255,136,0.3);
-}
-
-.btn-primary:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    transform: none;
-}
-
-.btn-icon {
-    font-size: 20px;
 }
 
 /* Loading */
@@ -276,10 +259,10 @@ body {
 }
 
 .spinner {
-    width: 60px;
-    height: 60px;
-    border: 4px solid rgba(255,255,255,0.1);
-    border-left-color: #00ff88;
+    width: 50px;
+    height: 50px;
+    border: 3px solid rgba(255,255,255,0.1);
+    border-top-color: #00ff88;
     border-radius: 50%;
     animation: spin 1s linear infinite;
     margin: 0 auto 20px;
@@ -289,49 +272,29 @@ body {
     to { transform: rotate(360deg); }
 }
 
-.loading p {
-    color: rgba(255,255,255,0.6);
-    font-size: 16px;
-}
-
 /* Results */
 .results {
-    animation: fadeIn 0.5s ease;
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-.results-header {
-    text-align: center;
-    margin-bottom: 24px;
+    margin-top: 30px;
 }
 
 .results-header h2 {
-    font-size: 28px;
-    font-weight: 700;
+    font-size: 24px;
+    margin-bottom: 20px;
 }
 
-/* Total Value Card */
 .total-value-card {
-    background: linear-gradient(135deg, rgba(0,255,136,0.1) 0%, rgba(0,204,106,0.05) 100%);
+    background: linear-gradient(135deg, rgba(0,255,136,0.1), rgba(0,204,106,0.05));
     border: 1px solid rgba(0,255,136,0.3);
     border-radius: 20px;
-    padding: 32px;
+    padding: 30px;
     text-align: center;
     margin-bottom: 30px;
 }
 
-.total-eth {
-    margin-bottom: 8px;
-}
-
 .total-eth .label {
     display: block;
-    font-size: 14px;
     color: rgba(255,255,255,0.6);
+    font-size: 14px;
     margin-bottom: 8px;
 }
 
@@ -343,57 +306,46 @@ body {
 
 .total-usd .value {
     font-size: 28px;
-    font-weight: 700;
-    color: rgba(255,255,255,0.8);
+    font-weight: 600;
+    color: rgba(255,255,255,0.9);
+    margin: 10px 0;
 }
 
 .fee-info, .after-fee {
     display: flex;
     justify-content: center;
-    align-items: center;
     gap: 10px;
-    margin-top: 16px;
-    padding-top: 16px;
+    margin-top: 15px;
+    padding-top: 15px;
     border-top: 1px solid rgba(255,255,255,0.1);
-}
-
-.fee-label {
+    color: rgba(255,255,255,0.7);
     font-size: 14px;
-    color: rgba(255,255,255,0.5);
 }
 
-.fee-info span:last-child {
-    font-size: 16px;
-    color: #ff6b6b;
-}
-
-.after-fee span:last-child {
-    font-size: 18px;
-    font-weight: 700;
+.after-fee {
     color: #00ff88;
+    font-weight: 600;
 }
 
 /* Balance List */
 .balance-list {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 16px;
+    overflow: hidden;
     margin-bottom: 30px;
 }
 
 .balance-item {
     display: flex;
-    align-items: center;
     justify-content: space-between;
+    align-items: center;
     padding: 16px 20px;
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 12px;
-    transition: all 0.3s ease;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
 }
 
-.balance-item:hover {
-    background: rgba(255,255,255,0.06);
+.balance-item:last-child {
+    border-bottom: none;
 }
 
 .balance-chain {
@@ -402,15 +354,10 @@ body {
     gap: 12px;
 }
 
-.balance-chain .chain-dot {
-    width: 12px;
-    height: 12px;
+.chain-dot {
+    width: 10px;
+    height: 10px;
     border-radius: 50%;
-}
-
-.balance-chain .chain-name {
-    font-size: 16px;
-    font-weight: 600;
 }
 
 .balance-values {
@@ -418,39 +365,47 @@ body {
 }
 
 .balance-eth {
-    font-size: 18px;
-    font-weight: 700;
-    color: #fff;
+    font-weight: 600;
+    font-size: 16px;
 }
 
 .balance-usd {
-    font-size: 14px;
     color: rgba(255,255,255,0.5);
+    font-size: 14px;
+}
+
+.no-dust {
+    text-align: center;
+    color: rgba(255,255,255,0.5);
+    padding: 40px;
 }
 
 /* Destination */
 .destination-section {
-    margin-bottom: 24px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 20px;
 }
 
 .destination-section label {
     display: block;
-    font-size: 14px;
-    font-weight: 600;
-    color: rgba(255,255,255,0.7);
     margin-bottom: 8px;
+    color: rgba(255,255,255,0.7);
+    font-size: 14px;
 }
 
 .destination-section input {
     width: 100%;
-    padding: 16px 20px;
+    padding: 14px 16px;
     background: rgba(255,255,255,0.05);
     border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 12px;
-    color: #fff;
-    font-size: 16px;
+    border-radius: 10px;
+    color: white;
+    font-size: 14px;
+    font-family: monospace;
     margin-bottom: 12px;
-    transition: all 0.3s ease;
 }
 
 .destination-section input:focus {
@@ -460,84 +415,54 @@ body {
 
 .destination-section select {
     width: 100%;
-    padding: 16px 20px;
+    padding: 14px 16px;
     background: rgba(255,255,255,0.05);
     border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 12px;
-    color: #fff;
-    font-size: 16px;
+    border-radius: 10px;
+    color: white;
+    font-size: 14px;
     cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.destination-section select:focus {
-    outline: none;
-    border-color: #00ff88;
 }
 
 .destination-section select option {
     background: #1a1a2e;
-    color: #fff;
-}
-
-/* Aggregate Button */
-.btn-aggregate {
-    width: 100%;
-    padding: 20px 32px;
-    background: linear-gradient(135deg, #00ff88 0%, #00cc6a 100%);
-    border: none;
-    border-radius: 14px;
-    color: #000;
-    font-size: 20px;
-    font-weight: 700;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    transition: all 0.3s ease;
-}
-
-.btn-aggregate:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 15px 50px rgba(0,255,136,0.4);
 }
 
 /* Status */
 .status {
     padding: 16px 20px;
     border-radius: 12px;
-    font-size: 14px;
+    margin: 20px 0;
+    font-weight: 500;
     text-align: center;
-    margin-top: 20px;
+}
+
+.status.info {
+    background: rgba(59,130,246,0.2);
+    border: 1px solid rgba(59,130,246,0.5);
+    color: #60a5fa;
 }
 
 .status.success {
-    background: rgba(0,255,136,0.1);
-    border: 1px solid #00ff88;
+    background: rgba(0,255,136,0.2);
+    border: 1px solid rgba(0,255,136,0.5);
     color: #00ff88;
 }
 
 .status.error {
-    background: rgba(255,107,107,0.1);
-    border: 1px solid #ff6b6b;
-    color: #ff6b6b;
-}
-
-.status.info {
-    background: rgba(100,150,255,0.1);
-    border: 1px solid #6496ff;
-    color: #6496ff;
+    background: rgba(255,71,87,0.2);
+    border: 1px solid rgba(255,71,87,0.5);
+    color: #ff4757;
 }
 
 /* Footer */
 .footer {
     text-align: center;
-    padding: 40px 0;
+    padding: 40px 0 20px;
     color: rgba(255,255,255,0.4);
     font-size: 14px;
-    border-top: 1px solid rgba(255,255,255,0.1);
-    margin-top: 60px;
+    border-top: 1px solid rgba(255,255,255,0.05);
+    margin-top: 40px;
 }
 
 /* Hidden */
@@ -550,16 +475,17 @@ body {
     .hero h1 {
         font-size: 32px;
     }
-
+    
     .chain-grid {
         grid-template-columns: repeat(2, 1fr);
     }
-
+    
     .total-eth .value {
         font-size: 32px;
     }
-
-    .total-usd .value {
-        font-size: 22px;
+    
+    .header {
+        flex-direction: column;
+        gap: 16px;
     }
 }
