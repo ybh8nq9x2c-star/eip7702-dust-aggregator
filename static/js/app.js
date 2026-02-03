@@ -372,7 +372,7 @@
                 throw new Error(data.error);
             }
 
-            scannedBalances = (data.balances || []).filter(b => b.balance > 0 && b.balance_usd > 0.01);
+            scannedBalances = (data.balances || []).filter(b => b.balance > 0 && b.balance_usd > 0.001);
             console.log('✅ Valid balances found:', scannedBalances.length);
             
             if (scannedBalances.length === 0) {

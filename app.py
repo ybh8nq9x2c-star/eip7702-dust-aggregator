@@ -125,7 +125,7 @@ def estimate():
                 continue
             
             balance = get_balance(w3, from_address)
-            if balance < 0.0001:
+            if balance < 0.000001:
                 continue
             
             chain = CHAINS[chain_key]
@@ -175,7 +175,7 @@ def execute():
                 continue
             
             balance = get_balance(w3, from_address)
-            if balance < 0.0001:
+            if balance < 0.000001:
                 continue
             
             chain = CHAINS[chain_key]
