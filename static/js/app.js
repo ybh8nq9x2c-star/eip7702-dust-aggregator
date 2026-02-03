@@ -1,6 +1,6 @@
 // =============================================
-// DUST.ZIP - EIP-7702 Dust Aggregator
-// Complete Working Version
+// DUST.ZIP - Cross-Chain Dust Aggregator
+// With LI.FI Bridge Integration
 // =============================================
 
 let provider = null;
@@ -8,23 +8,16 @@ let signer = null;
 let userAddress = null;
 let chains = {};
 let selectedChains = new Set();
-let scannedBalances = []; // Initialize as empty array
+let scannedBalances = [];
 let ethPrice = 2500;
-
-// =============================================
-// INITIALIZATION 
-// =============================================
 
 console.log('[Dust.zip] Script loaded');
 
 function init() {
     console.log('[Dust.zip] Initializing...');
-    
-    // Fetch data
     fetchEthPrice();
     fetchChains();
     
-    // Setup event listeners
     const connectBtn = document.getElementById('connectBtn');
     const selectAllBtn = document.getElementById('selectAllBtn');
     const deselectAllBtn = document.getElementById('deselectAllBtn');
@@ -40,7 +33,6 @@ function init() {
     console.log('[Dust.zip] Ready!');
 }
 
-// Run init when DOM is ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
 } else {
@@ -62,7 +54,6 @@ async function connectWallet() {
     try {
         showStatus('Connecting wallet...', 'info');
         
-        // Check if ethers is available
         if (typeof ethers === 'undefined') {
             throw new Error('Ethers.js not loaded');
         }
@@ -72,14 +63,15 @@ async function connectWallet() {
         userAddress = accounts[0];
         signer = await provider.getSigner();
         
-        // Update UI
         const connectText = document.getElementById('connectText');
         const connectBtn = document.getElementById('connectBtn');
         const addressInput = document.getElementById('addressInput');
+        const destAddressInput = document.getElementById('destAddressInput');
         
         if (connectText) connectText.textContent = shortAddr(userAddress);
         if (connectBtn) connectBtn.classList.add('connected');
         if (addressInput) addressInput.value = userAddress;
+        if (destAddressInput && !destAddressInput.value) destAddressInput.value = userAddress;
         
         showStatus('Wallet connected!', 'success');
         console.log('[Dust.zip] Connected:', userAddress);
@@ -95,8 +87,6 @@ async function connectWallet() {
 // =============================================
 
 async function fetchChains() {
-    console.log('[Dust.zip] Fetching chains...');
-    
     try {
         const res = await fetch('/api/chains');
         if (!res.ok) throw new Error('Failed to fetch chains');
@@ -104,6 +94,7 @@ async function fetchChains() {
         chains = await res.json();
         console.log('[Dust.zip] Chains loaded:', Object.keys(chains).length);
         renderChainGrid();
+        renderDestinationSelect();
         
     } catch (err) {
         console.error('[Dust.zip] Chain fetch error:', err);
@@ -130,8 +121,21 @@ function renderChainGrid() {
         div.onclick = () => toggleChain(key, div);
         grid.appendChild(div);
     });
+}
+
+function renderDestinationSelect() {
+    const select = document.getElementById('destChainSelect');
+    if (!select) return;
     
-    console.log('[Dust.zip] Chain grid rendered:', selectedChains.size);
+    select.innerHTML = '';
+    
+    Object.entries(chains).forEach(([key, chain]) => {
+        const option = document.createElement('option');
+        option.value = key;
+        option.textContent = chain.name;
+        if (key === 'ethereum') option.selected = true;
+        select.appendChild(option);
+    });
 }
 
 function toggleChain(key, el) {
@@ -172,11 +176,9 @@ async function fetchEthPrice() {
     try {
         const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
         const data = await res.json();
-        if (data && data.ethereum && data.ethereum.usd) {
-            ethPrice = data.ethereum.usd;
-        }
+        if (data?.ethereum?.usd) ethPrice = data.ethereum.usd;
         console.log('[Dust.zip] ETH price:', ethPrice);
-    } catch (err) {
+    } catch {
         console.log('[Dust.zip] Using default ETH price:', ethPrice);
     }
 }
@@ -192,7 +194,7 @@ async function scanBalances() {
     const address = addressInput ? addressInput.value.trim() : '';
     
     if (!address || address.length !== 42 || !address.startsWith('0x')) {
-        showStatus('Please enter a valid address (0x...)', 'error');
+        showStatus('Please enter a valid address', 'error');
         return;
     }
     
@@ -201,7 +203,6 @@ async function scanBalances() {
         return;
     }
     
-    // Show loading
     const loading = document.getElementById('loading');
     const results = document.getElementById('results');
     const scanBtn = document.getElementById('scanBtn');
@@ -215,33 +216,21 @@ async function scanBalances() {
     try {
         await fetchEthPrice();
         
-        const chainList = Array.from(selectedChains);
-        console.log('[Dust.zip] Scanning chains:', chainList);
-        
         const res = await fetch('/api/balances', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 address: address,
-                chains: chainList
+                chains: Array.from(selectedChains)
             })
         });
         
-        if (!res.ok) {
-            throw new Error('API request failed: ' + res.status);
-        }
+        if (!res.ok) throw new Error('API request failed: ' + res.status);
         
         const data = await res.json();
-        console.log('[Dust.zip] Scan response:', data);
+        if (data.error) throw new Error(data.error);
         
-        if (data.error) {
-            throw new Error(data.error);
-        }
-        
-        // Ensure balances is an array
         scannedBalances = Array.isArray(data.balances) ? data.balances : [];
-        console.log('[Dust.zip] Balances:', scannedBalances.length);
-        
         displayResults(data);
         showStatus('Scan complete!', 'success');
         
@@ -255,13 +244,10 @@ async function scanBalances() {
 }
 
 function displayResults(data) {
-    console.log('[Dust.zip] Displaying results...');
-    
     const total = parseFloat(data.total) || 0;
     const fee = parseFloat(data.fee) || 0;
     const net = parseFloat(data.net) || 0;
     
-    // Update totals
     const totalValue = document.getElementById('totalValue');
     const totalUsd = document.getElementById('totalUsd');
     const feeValue = document.getElementById('feeValue');
@@ -269,66 +255,60 @@ function displayResults(data) {
     
     if (totalValue) totalValue.textContent = total.toFixed(6) + ' ETH';
     if (totalUsd) totalUsd.textContent = '$' + (total * ethPrice).toFixed(2);
-    if (feeValue) feeValue.textContent = fee.toFixed(6) + ' ETH';
-    if (netValue) netValue.textContent = net.toFixed(6) + ' ETH';
+    if (feeValue) feeValue.textContent = fee.toFixed(6) + ' ETH ($' + (fee * ethPrice).toFixed(2) + ')';
+    if (netValue) netValue.textContent = net.toFixed(6) + ' ETH ($' + (net * ethPrice).toFixed(2) + ')';
     
-    // Display balance list
     const list = document.getElementById('balanceList');
-    if (!list) return;
-    
-    list.innerHTML = '';
-    
-    // Filter balances with value > 0
-    const withBalance = scannedBalances.filter(b => {
-        const bal = parseFloat(b.balance) || 0;
-        return bal > 0;
-    });
-    
-    console.log('[Dust.zip] Chains with balance:', withBalance.length);
-    
-    if (withBalance.length === 0) {
-        list.innerHTML = '<div class="no-dust">No dust found on selected chains</div>';
-    } else {
-        withBalance.forEach(b => {
-            const bal = parseFloat(b.balance) || 0;
-            const div = document.createElement('div');
-            div.className = 'balance-item';
-            div.innerHTML = `
-                <div class="bal-chain">
-                    <div class="chain-dot" style="background:${b.color || '#666'}"></div>
-                    <span>${b.name || 'Unknown'}</span>
-                </div>
-                <div class="bal-values">
-                    <div class="bal-eth">${bal.toFixed(6)} ${b.symbol || 'ETH'}</div>
-                    <div class="bal-usd">$${(bal * ethPrice).toFixed(2)}</div>
-                </div>
-            `;
-            list.appendChild(div);
-        });
+    if (list) {
+        list.innerHTML = '';
+        
+        const withBalance = scannedBalances.filter(b => (parseFloat(b.balance) || 0) > 0);
+        
+        if (withBalance.length === 0) {
+            list.innerHTML = '<div class="no-dust">No dust found on selected chains</div>';
+        } else {
+            withBalance.forEach(b => {
+                const bal = parseFloat(b.balance) || 0;
+                const div = document.createElement('div');
+                div.className = 'balance-item';
+                div.innerHTML = `
+                    <div class="bal-chain">
+                        <div class="chain-dot" style="background:${b.color || '#666'}"></div>
+                        <span>${b.name || 'Unknown'}</span>
+                    </div>
+                    <div class="bal-values">
+                        <div class="bal-eth">${bal.toFixed(6)} ${b.symbol || 'ETH'}</div>
+                        <div class="bal-usd">$${(bal * ethPrice).toFixed(2)}</div>
+                    </div>
+                `;
+                list.appendChild(div);
+            });
+        }
     }
     
-    // Pre-fill destination
-    const destInput = document.getElementById('destInput');
-    if (destInput && userAddress && !destInput.value) {
-        destInput.value = userAddress;
+    const destAddressInput = document.getElementById('destAddressInput');
+    if (destAddressInput && userAddress && !destAddressInput.value) {
+        destAddressInput.value = userAddress;
     }
     
-    // Show results
     const results = document.getElementById('results');
     if (results) results.classList.remove('hidden');
 }
 
 // =============================================
-// DUST AGGREGATION
+// CROSS-CHAIN BRIDGE AGGREGATION
 // =============================================
 
 async function aggregateDust() {
-    console.log('[Dust.zip] Starting aggregation...');
+    console.log('[Dust.zip] Starting cross-chain aggregation...');
     
-    const destInput = document.getElementById('destInput');
-    const destination = destInput ? destInput.value.trim() : '';
+    const destAddressInput = document.getElementById('destAddressInput');
+    const destChainSelect = document.getElementById('destChainSelect');
     
-    if (!destination || destination.length !== 42 || !destination.startsWith('0x')) {
+    const destAddress = destAddressInput ? destAddressInput.value.trim() : '';
+    const destChain = destChainSelect ? destChainSelect.value : 'ethereum';
+    
+    if (!destAddress || destAddress.length !== 42 || !destAddress.startsWith('0x')) {
         showStatus('Please enter a valid destination address', 'error');
         return;
     }
@@ -338,51 +318,46 @@ async function aggregateDust() {
         return;
     }
     
-    // Filter balances with enough value
-    const withBalance = scannedBalances.filter(b => {
-        const bal = parseFloat(b.balance) || 0;
-        return bal > 0.001;
-    });
-    
-    console.log('[Dust.zip] Chains to aggregate:', withBalance.length);
+    const withBalance = scannedBalances.filter(b => (parseFloat(b.balance) || 0) > 0.002);
     
     if (withBalance.length === 0) {
-        showStatus('No dust to aggregate (minimum 0.001)', 'error');
+        showStatus('No dust to aggregate (min 0.002)', 'error');
         return;
     }
     
     const aggregateBtn = document.getElementById('aggregateBtn');
     if (aggregateBtn) aggregateBtn.disabled = true;
     
-    showStatus('Preparing transactions...', 'info');
+    showStatus('Preparing bridge transactions...', 'info');
     
     try {
-        // Get prepared transactions from backend
-        const res = await fetch('/api/prepare', {
+        // Get bridge transactions from backend
+        const res = await fetch('/api/prepare-bridge', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 balances: withBalance,
-                destination: destination
+                from_address: userAddress,
+                to_address: destAddress,
+                destination_chain: destChain
             })
         });
         
-        if (!res.ok) {
-            throw new Error('API request failed: ' + res.status);
-        }
+        if (!res.ok) throw new Error('API request failed: ' + res.status);
         
         const data = await res.json();
-        console.log('[Dust.zip] Prepared transactions:', data);
-        
-        if (data.error) {
-            throw new Error(data.error);
-        }
+        if (data.error) throw new Error(data.error);
         
         const transactions = data.transactions || [];
         
         if (transactions.length === 0) {
             showStatus('No transactions to send', 'error');
             return;
+        }
+        
+        // Show bridge quotes
+        if (data.bridge_quotes && data.bridge_quotes.length > 0) {
+            console.log('[Dust.zip] Bridge quotes:', data.bridge_quotes);
         }
         
         // Show progress UI
@@ -394,7 +369,7 @@ async function aggregateDust() {
         if (txProgress) txProgress.classList.remove('hidden');
         if (txList) txList.innerHTML = '';
         
-        // Group transactions by chain
+        // Group by chain
         const byChain = {};
         transactions.forEach(tx => {
             const key = tx.chain_key;
@@ -410,38 +385,44 @@ async function aggregateDust() {
             const chainData = chains[chainKey];
             if (!chainData) continue;
             
-            // Switch to this chain
+            // Switch network
             const switched = await switchNetwork(chainData.chain_id, chainData.name);
-            if (!switched) {
-                console.log('[Dust.zip] Failed to switch to', chainData.name);
-                continue;
-            }
+            if (!switched) continue;
             
-            // Refresh provider and signer after network switch
+            // Refresh provider/signer
             provider = new ethers.BrowserProvider(window.ethereum);
             signer = await provider.getSigner();
             
-            // Execute each transaction on this chain
+            // Execute each tx
             for (const tx of txs) {
-                // Create UI element
                 const txDiv = document.createElement('div');
                 txDiv.className = 'tx-item pending';
+                
+                const typeIcon = tx.type === 'fee' ? '💸' : (tx.type === 'bridge' ? '🌉' : '📤');
+                const typeLabel = tx.type === 'fee' ? 'Fee' : (tx.type === 'bridge' ? `Bridge → ${tx.dest_chain}` : 'Transfer');
+                
                 txDiv.innerHTML = `
                     <span class="tx-chain">${tx.chain_name}</span>
-                    <span class="tx-type">${tx.type === 'fee' ? '💸 Fee' : '📤 Transfer'}</span>
+                    <span class="tx-type">${typeIcon} ${typeLabel}</span>
                     <span class="tx-amount">${parseFloat(tx.value_eth).toFixed(6)}</span>
                     <span class="tx-status">⏳</span>
                 `;
                 if (txList) txList.appendChild(txDiv);
                 
                 try {
-                    // Send transaction
-                    const txResponse = await signer.sendTransaction({
+                    const txRequest = {
                         to: tx.to,
-                        value: ethers.toBigInt(tx.value)
-                    });
+                        value: ethers.toBigInt(tx.value),
+                        data: tx.data || '0x'
+                    };
                     
-                    // Wait for confirmation
+                    // Add gas limit for bridge transactions
+                    if (tx.gas_limit) {
+                        txRequest.gasLimit = ethers.toBigInt(tx.gas_limit);
+                    }
+                    
+                    const txResponse = await signer.sendTransaction(txRequest);
+                    
                     const statusEl = txDiv.querySelector('.tx-status');
                     if (statusEl) statusEl.textContent = '⏳ Confirming...';
                     
@@ -462,9 +443,9 @@ async function aggregateDust() {
         
         // Final status
         if (successCount === totalCount) {
-            showStatus(`✅ Complete! ${successCount}/${totalCount} transactions sent`, 'success');
+            showStatus(`✅ Complete! ${successCount}/${totalCount} transactions`, 'success');
         } else if (successCount > 0) {
-            showStatus(`⚠️ Partial: ${successCount}/${totalCount} transactions sent`, 'info');
+            showStatus(`⚠️ Partial: ${successCount}/${totalCount} transactions`, 'info');
         } else {
             showStatus('❌ No transactions completed', 'error');
         }
@@ -482,8 +463,6 @@ async function aggregateDust() {
 // =============================================
 
 async function switchNetwork(chainId, chainName) {
-    console.log('[Dust.zip] Switching to', chainName, chainId);
-    
     const hexChainId = '0x' + chainId.toString(16);
     
     try {
@@ -495,8 +474,6 @@ async function switchNetwork(chainId, chainName) {
     } catch (err) {
         if (err.code === 4902) {
             showStatus(`Please add ${chainName} to MetaMask`, 'error');
-        } else {
-            console.error('[Dust.zip] Switch failed:', err);
         }
         return false;
     }
@@ -512,8 +489,6 @@ function shortAddr(addr) {
 }
 
 function showStatus(msg, type) {
-    console.log('[Dust.zip] Status:', type, msg);
-    
     const el = document.getElementById('status');
     if (!el) return;
     
@@ -522,8 +497,6 @@ function showStatus(msg, type) {
     el.classList.remove('hidden');
     
     if (type === 'success' || type === 'info') {
-        setTimeout(() => {
-            el.classList.add('hidden');
-        }, 5000);
+        setTimeout(() => el.classList.add('hidden'), 5000);
     }
 }

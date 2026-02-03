@@ -3,101 +3,162 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dust.zip - EIP-7702 Dust Aggregator</title>
+    <title>Dust.zip - Cross-Chain Dust Aggregator</title>
     <link rel="stylesheet" href="/static/css/style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div class="app">
+    <div class="container">
         <!-- Header -->
         <header>
-            <div class="logo">⚡ Dust<span>.zip</span></div>
-            <button id="connectBtn" class="btn-connect">
-                🦊 <span id="connectText">Connect Wallet</span>
+            <div class="logo">
+                <span class="logo-icon">🌉</span>
+                <h1>Dust.zip</h1>
+            </div>
+            <p class="tagline">Aggregate dust from 15 chains into one</p>
+            <button id="connectBtn" class="connect-btn">
+                <span id="connectText">Connect Wallet</span>
             </button>
         </header>
 
-        <!-- Hero -->
-        <section class="hero">
-            <h1>Aggregate Your Dust</h1>
-            <p>Collect small balances from 15 EVM chains into one</p>
-        </section>
+        <!-- Status -->
+        <div id="status" class="status hidden"></div>
 
-        <!-- Wallet Input -->
-        <section class="section">
-            <label>Wallet Address</label>
-            <input type="text" id="addressInput" placeholder="0x... or connect wallet">
+        <!-- Source Address -->
+        <section class="card">
+            <h2>📍 Source Wallet</h2>
+            <input type="text" id="addressInput" class="address-input" 
+                   placeholder="0x... or connect wallet" />
         </section>
 
         <!-- Chain Selection -->
-        <section class="section">
+        <section class="card">
             <div class="section-header">
-                <label>Select Chains to Scan</label>
-                <div class="chain-btns">
-                    <button id="selectAllBtn" class="btn-sm">Select All</button>
-                    <button id="deselectAllBtn" class="btn-sm">Deselect All</button>
+                <h2>⛓️ Source Chains</h2>
+                <div class="chain-actions">
+                    <button id="selectAllBtn" class="btn-small">Select All</button>
+                    <button id="deselectAllBtn" class="btn-small">Deselect All</button>
                 </div>
             </div>
             <div id="chainGrid" class="chain-grid"></div>
         </section>
 
         <!-- Scan Button -->
-        <button id="scanBtn" class="btn-primary">🔍 Scan Balances</button>
+        <button id="scanBtn" class="action-btn scan-btn">
+            🔍 Scan Balances
+        </button>
 
         <!-- Loading -->
         <div id="loading" class="loading hidden">
             <div class="spinner"></div>
-            <p id="loadingText">Scanning...</p>
+            <p id="loadingText">Scanning chains...</p>
         </div>
 
         <!-- Results -->
-        <section id="results" class="results hidden">
-            <h2>💰 Dust Found</h2>
+        <section id="results" class="card results hidden">
+            <h2>💰 Balances Found</h2>
             
-            <div class="total-card">
+            <div class="totals">
                 <div class="total-row">
-                    <span>Total Value</span>
-                    <span id="totalValue">0 ETH</span>
+                    <span>Total Value:</span>
+                    <div class="total-values">
+                        <span id="totalValue">0.000000 ETH</span>
+                        <span id="totalUsd" class="usd">$0.00</span>
+                    </div>
                 </div>
-                <div id="totalUsd" class="total-usd">$0.00</div>
-                <div class="fee-row">
-                    <span>Platform Fee (5%)</span>
-                    <span id="feeValue">0 ETH</span>
+                <div class="total-row fee">
+                    <span>Platform Fee (5%):</span>
+                    <span id="feeValue">0.000000 ETH</span>
                 </div>
-                <div class="net-row">
-                    <span>You Receive</span>
-                    <span id="netValue">0 ETH</span>
+                <div class="total-row net">
+                    <span>You Receive:</span>
+                    <span id="netValue">0.000000 ETH</span>
                 </div>
             </div>
 
             <div id="balanceList" class="balance-list"></div>
 
             <!-- Destination -->
-            <div class="destination">
-                <label>Destination Address</label>
-                <input type="text" id="destInput" placeholder="0x... where to send funds">
+            <div class="destination-section">
+                <h3>🎯 Bridge Destination</h3>
+                
+                <div class="dest-row">
+                    <label>Destination Chain:</label>
+                    <select id="destChainSelect" class="chain-select">
+                        <!-- Populated by JS -->
+                    </select>
+                </div>
+                
+                <div class="dest-row">
+                    <label>Destination Address:</label>
+                    <input type="text" id="destAddressInput" class="address-input" 
+                           placeholder="0x... (defaults to connected wallet)" />
+                </div>
             </div>
 
-            <button id="aggregateBtn" class="btn-aggregate">⚡ Aggregate Now</button>
+            <button id="aggregateBtn" class="action-btn aggregate-btn">
+                🌉 Bridge & Aggregate Dust
+            </button>
         </section>
 
         <!-- Transaction Progress -->
-        <section id="txProgress" class="tx-progress hidden">
-            <h2>📤 Sending Transactions</h2>
+        <section id="txProgress" class="card hidden">
+            <h2>📝 Transactions</h2>
             <div id="txList" class="tx-list"></div>
         </section>
 
-        <!-- Status -->
-        <div id="status" class="status hidden"></div>
-
         <!-- Footer -->
         <footer>
-            <p>Powered by EIP-7702 | 15 EVM Chains</p>
+            <p>Powered by LI.FI Bridge Aggregator</p>
         </footer>
     </div>
 
-    <!-- Load Ethers.js -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.9.0/ethers.umd.min.js"></script>
-    <script src="/static/js/app.js"></script>
+    <!-- Scripts -->
+    <script>
+        function loadEthers() {
+            return new Promise((resolve, reject) => {
+                if (typeof ethers !== 'undefined') {
+                    resolve();
+                    return;
+                }
+                
+                const sources = [
+                    'https://unpkg.com/ethers@6.9.0/dist/ethers.umd.min.js',
+                    'https://cdn.jsdelivr.net/npm/ethers@6.9.0/dist/ethers.umd.min.js'
+                ];
+                
+                function tryLoad(index) {
+                    if (index >= sources.length) {
+                        reject(new Error('Failed to load Ethers.js'));
+                        return;
+                    }
+                    
+                    const script = document.createElement('script');
+                    script.src = sources[index];
+                    script.onload = () => {
+                        if (typeof ethers !== 'undefined') {
+                            console.log('[Dust.zip] Ethers loaded from', sources[index]);
+                            resolve();
+                        } else {
+                            tryLoad(index + 1);
+                        }
+                    };
+                    script.onerror = () => tryLoad(index + 1);
+                    document.head.appendChild(script);
+                }
+                
+                tryLoad(0);
+            });
+        }
+        
+        loadEthers().then(() => {
+            const appScript = document.createElement('script');
+            appScript.src = '/static/js/app.js';
+            document.body.appendChild(appScript);
+        }).catch(err => {
+            console.error('[Dust.zip] Failed to load Ethers:', err);
+            document.getElementById('status').textContent = 'Failed to load Ethers.js';
+            document.getElementById('status').classList.remove('hidden');
+        });
+    </script>
 </body>
 </html>
