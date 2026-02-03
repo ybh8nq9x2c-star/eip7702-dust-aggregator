@@ -9,13 +9,32 @@ let userAddress = null;
 let chains = {};
 let selectedChains = new Set();
 let scannedBalances = [];
-let ethPrice = 2500;
+let prices = {};
 
 console.log('[Dust.zip] Script loaded');
 
+// Token prices from CoinGecko
+const TOKEN_IDS = {
+    'ethereum': 'ethereum',
+    'polygon': 'matic-network',
+    'bsc': 'binancecoin',
+    'arbitrum': 'ethereum',
+    'optimism': 'ethereum',
+    'avalanche': 'avalanche-2',
+    'fantom': 'fantom',
+    'base': 'ethereum',
+    'linea': 'ethereum',
+    'scroll': 'ethereum',
+    'zksync': 'ethereum',
+    'moonbeam': 'moonbeam',
+    'celo': 'celo',
+    'gnosis': 'gnosis',
+    'aurora': 'ethereum'
+};
+
 function init() {
     console.log('[Dust.zip] Initializing...');
-    fetchEthPrice();
+    fetchAllPrices();
     fetchChains();
     
     const connectBtn = document.getElementById('connectBtn');
@@ -37,6 +56,63 @@ if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
 } else {
     init();
+}
+
+// =============================================
+// PRICE FETCHING
+// =============================================
+
+async function fetchAllPrices() {
+    console.log('[Dust.zip] Fetching all token prices...');
+    
+    try {
+        // Get unique token IDs
+        const uniqueIds = [...new Set(Object.values(TOKEN_IDS))];
+        const ids = uniqueIds.join(',');
+        
+        // Fetch all prices in one call
+        const res = await fetch(
+            `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd`
+        );
+        
+        if (!res.ok) throw new Error('CoinGecko API failed');
+        
+        const data = await res.json();
+        
+        // Build price map for each chain
+        Object.keys(TOKEN_IDS).forEach(key => {
+            const tokenId = TOKEN_IDS[key];
+            const price = data[tokenId]?.usd || 0;
+            prices[key] = price;
+        });
+        
+        console.log('[Dust.zip] Prices loaded:', prices);
+        
+    } catch (err) {
+        console.error('[Dust.zip] Price fetch error:', err);
+        // Fallback prices
+        prices = {
+            'ethereum': 2500,
+            'polygon': 0.7,
+            'bsc': 350,
+            'arbitrum': 2500,
+            'optimism': 2500,
+            'avalanche': 35,
+            'fantom': 0.5,
+            'base': 2500,
+            'linea': 2500,
+            'scroll': 2500,
+            'zksync': 2500,
+            'moonbeam': 0.2,
+            'celo': 0.8,
+            'gnosis': 1,
+            'aurora': 2500
+        };
+    }
+}
+
+function getChainPrice(chainKey) {
+    return prices[chainKey] || 0;
 }
 
 // =============================================
@@ -169,21 +245,6 @@ function deselectAll() {
 }
 
 // =============================================
-// ETH PRICE
-// =============================================
-
-async function fetchEthPrice() {
-    try {
-        const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
-        const data = await res.json();
-        if (data?.ethereum?.usd) ethPrice = data.ethereum.usd;
-        console.log('[Dust.zip] ETH price:', ethPrice);
-    } catch {
-        console.log('[Dust.zip] Using default ETH price:', ethPrice);
-    }
-}
-
-// =============================================
 // BALANCE SCANNING
 // =============================================
 
@@ -214,7 +275,7 @@ async function scanBalances() {
     if (loadingText) loadingText.textContent = `Scanning ${selectedChains.size} chains...`;
     
     try {
-        await fetchEthPrice();
+        await fetchAllPrices();
         
         const res = await fetch('/api/balances', {
             method: 'POST',
@@ -248,15 +309,27 @@ function displayResults(data) {
     const fee = parseFloat(data.fee) || 0;
     const net = parseFloat(data.net) || 0;
     
+    // Calculate total USD by summing individual chain USD values
+    let totalUsd = 0;
+    scannedBalances.forEach(b => {
+        const bal = parseFloat(b.balance) || 0;
+        const chainKey = b.key || '';
+        const price = getChainPrice(chainKey);
+        totalUsd += bal * price;
+    });
+    
+    const feeUsd = totalUsd * 0.05;
+    const netUsd = totalUsd - feeUsd;
+    
     const totalValue = document.getElementById('totalValue');
-    const totalUsd = document.getElementById('totalUsd');
+    const totalUsdEl = document.getElementById('totalUsd');
     const feeValue = document.getElementById('feeValue');
     const netValue = document.getElementById('netValue');
     
-    if (totalValue) totalValue.textContent = total.toFixed(6) + ' ETH';
-    if (totalUsd) totalUsd.textContent = '$' + (total * ethPrice).toFixed(2);
-    if (feeValue) feeValue.textContent = fee.toFixed(6) + ' ETH ($' + (fee * ethPrice).toFixed(2) + ')';
-    if (netValue) netValue.textContent = net.toFixed(6) + ' ETH ($' + (net * ethPrice).toFixed(2) + ')';
+    if (totalValue) totalValue.textContent = total.toFixed(6) + ' tokens';
+    if (totalUsdEl) totalUsdEl.textContent = '$' + totalUsd.toFixed(2);
+    if (feeValue) feeValue.textContent = (total * 0.05).toFixed(6) + ' tokens ($' + feeUsd.toFixed(2) + ')';
+    if (netValue) netValue.textContent = net.toFixed(6) + ' tokens ($' + netUsd.toFixed(2) + ')';
     
     const list = document.getElementById('balanceList');
     if (list) {
@@ -269,6 +342,10 @@ function displayResults(data) {
         } else {
             withBalance.forEach(b => {
                 const bal = parseFloat(b.balance) || 0;
+                const chainKey = b.key || '';
+                const price = getChainPrice(chainKey);
+                const usdVal = bal * price;
+                
                 const div = document.createElement('div');
                 div.className = 'balance-item';
                 div.innerHTML = `
@@ -278,7 +355,7 @@ function displayResults(data) {
                     </div>
                     <div class="bal-values">
                         <div class="bal-eth">${bal.toFixed(6)} ${b.symbol || 'ETH'}</div>
-                        <div class="bal-usd">$${(bal * ethPrice).toFixed(2)}</div>
+                        <div class="bal-usd">$${usdVal.toFixed(2)}</div>
                     </div>
                 `;
                 list.appendChild(div);
