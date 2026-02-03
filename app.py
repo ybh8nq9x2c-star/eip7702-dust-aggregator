@@ -399,7 +399,7 @@ def estimate_sweep():
             
             # Calculate service fee (5%, min $0.05, max $0.50)
             service_fee_usd = calculate_service_fee(balance_usd - gas_cost_usd)
-            service_fee_wei = int(service_fee_usd * 1e18 / get_token_price(CHAINS[dest_chain]['symbol']))
+            service_fee_wei = int(service_fee_usd * 1e18 / get_token_price(dest_chain['symbol']))
             
             # Calculate net transfer
             net_usd = balance_usd - gas_cost_usd - service_fee_usd
