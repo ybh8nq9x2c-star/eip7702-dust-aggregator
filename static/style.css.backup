@@ -253,12 +253,8 @@ header {
     transform: translateY(-2px);
 }
 
-[.chain-card input[type="checkbox"] {
-    display: block;
-    width: 20px;
-    height: 20px;
-    cursor: pointer;
-
+.chain-card input[type="checkbox"] {
+    display: none;
 }
 
 .chain-card label {
@@ -580,19 +576,4 @@ footer {
 
 ::-webkit-scrollbar-thumb:hover {
     background: var(--primary);
-}
-
-/* Chain card selected state */
-.chain-card.selected {
-    border-color: var(--primary) !important;
-    background: var(--bg-hover);
-    box-shadow: 0 0 0 2px rgba(0, 255, 163, 0.2);
-}
-
-.chain-card.selected .chain-icon {
-    box-shadow: 0 0 0 2px var(--bg-dark), 0 0 0 4px var(--primary);
-}
-
-.chain-card.selected input[type="checkbox"]:checked {
-    accent-color: var(--primary);
 }

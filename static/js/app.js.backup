@@ -142,22 +142,15 @@
     function handleChainChange(key, isChecked) {
         console.log('🔄 Chain selection changed:', key, isChecked);
         
-        // Find chain card element
-        const chainCard = document.querySelector(`#chain-${key}`).closest('.chain-card');
-        
         if (isChecked) {
             selectedChains.add(key);
-            if (chainCard) {
-                chainCard.classList.add('selected');
-                console.log('✅ Chain added:', key, 'Total selected:', selectedChains.size);
-            }
+            console.log('✅ Chain added:', key, 'Total selected:', selectedChains.size);
         } else {
             selectedChains.delete(key);
-            if (chainCard) {
-                chainCard.classList.remove('selected');
-                console.log('❌ Chain removed:', key, 'Total selected:', selectedChains.size);
-            }
+            console.log('❌ Chain removed:', key, 'Total selected:', selectedChains.size);
         }
+        
+        console.log('📊 Current selection:', Array.from(selectedChains));
     }
 
     // Update checkboxes from selectedChains
