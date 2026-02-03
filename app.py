@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from flask import Flask, render_template, jsonify, request
 from flask_cors import CORS
 from web3 import Web3
+from web3.contract import Contract
 
 app = Flask(__name__)
 CORS(app)
@@ -13,9 +14,47 @@ CORS(app)
 FEE_PERCENTAGE = 0.05
 FEE_WALLET = "0xFc20B3A46aD9DAD7d4656bB52C1B13CA042cd2f1"
 RPC_TIMEOUT = 5
-LIFI_API = "https://li.quest/v1"
 
-# Native token addresses (used by LI.FI)
+# LayerZero v2 / Stargate Configuration
+# Stargate is a LayerZero-based bridge for native tokens
+STARGATE_ROUTER = {
+    1: "0x8731d54E9D02c286767d56ac03e8037C07e01e98",      # Ethereum
+    56: "0x29578d5f5c34ce65da6317c4683a9de0b3d73184",      # BSC
+    137: "0x8731d54E9D02c286767d56ac03e8037C07e01e98",    # Polygon (using shared router)
+    42161: "0x8731d54E9D02c286767d56ac03e8037C07e01e98",  # Arbitrum
+    10: "0x8731d54E9D02c286767d56ac03e8037C07e01e98",      # Optimism
+    43114: "0x8731d54E9D02c286767d56ac03e8037C07e01e98",   # Avalanche
+    250: "0x8731d54E9D02c286767d56ac03e8037C07e01e98",      # Fantom
+    8453: "0x8731d54E9D02c286767d56ac03e8037C07e01e98",     # Base
+    59144: "0x8731d54E9D02c286767d56ac03e8037C07e01e98",    # Linea
+    534352: "0x8731d54E9D02c286767d56ac03e8037C07e01e98",   # Scroll
+    324: "0x8731d54E9D02c286767d56ac03e8037C07e01e98",      # zkSync
+    1284: "0x8731d54E9D02c286767d56ac03e8037C07e01e98",    # Moonbeam
+    42220: "0x8731d54E9D02c286767d56ac03e8037C07e01e98",    # Celo
+    100: "0x8731d54E9D02c286767d56ac03e8037C07e01e98",      # Gnosis
+    1313161554: "0x8731d54E9D02c286767d56ac03e8037C07e01e98" # Aurora
+}
+
+# LayerZero v2 Endpoint Addresses
+LZ_ENDPOINT = {
+    1: "0x1a44076050125825900e736c501f859c50fE728c",         # Ethereum
+    56: "0x3a1d4102b24363b32f8853c4d1094074a3c161f2",       # BSC
+    137: "0x3c2269811836af69497E5F486A85D7316753cf62",      # Polygon
+    42161: "0x1a44076050125825900e736c501f859c50fE728c",    # Arbitrum
+    10: "0x1a44076050125825900e736c501f859c50fE728c",       # Optimism
+    43114: "0x1a44076050125825900e736c501f859c50fE728c",     # Avalanche
+    250: "0x1a44076050125825900e736c501f859c50fE728c",       # Fantom
+    8453: "0x1a44076050125825900e736c501f859c50fE728c",      # Base
+    59144: "0x1a44076050125825900e736c501f859c50fE728c",     # Linea
+    534352: "0x1a44076050125825900e736c501f859c50fE728c",    # Scroll
+    324: "0x1a44076050125825900e736c501f859c50fE728c",       # zkSync
+    1284: "0x1a44076050125825900e736c501f859c50fE728c",      # Moonbeam
+    42220: "0x1a44076050125825900e736c501f859c50fE728c",     # Celo
+    100: "0x1a44076050125825900e736c501f859c50fE728c",       # Gnosis
+    1313161554: "0x1a44076050125825900e736c501f859c50fE728c"  # Aurora
+}
+
+# Native token addresses
 NATIVE_TOKEN = "0x0000000000000000000000000000000000000000"
 
 # 15 Supported EVM Chains
@@ -143,6 +182,41 @@ CHAINS = {
 }
 
 
+# LayerZero v2 Endpoint ABI
+LZ_ENDPOINT_ABI = [
+    {
+        "inputs": [
+            {"internalType": "uint16", "name": "_dstEid", "type": "uint16"},
+            {"internalType": "bytes", "name": "_message", "type": "bytes"},
+            {"internalType": "bytes payable", "name": "_options", "type": "bytes"},
+            {"internalType": "bool", "name": "_payInLzToken", "type": "bool"},
+            {"internalType": "bytes", "name": "_ulnNlzFee", "type": "bytes"}
+        ],
+        "name": "send",
+        "outputs": [{"internalType": "uint256", "name": "msgId", "type": "uint256"}],
+        "stateMutability": "payable",
+        "type": "function"
+    }
+]
+
+# ERC20 ABI for checking balances
+ERC20_ABI = [
+    {
+        "constant": True,
+        "inputs": [{"name": "_owner", "type": "address"}],
+        "name": "balanceOf",
+        "outputs": [{"name": "balance", "type": "uint256"}],
+        "type": "function"
+    },
+    {
+        "constant": True,
+        "inputs": [],
+        "name": "decimals",
+        "outputs": [{"name": "", "type": "uint8"}],
+        "type": "function"
+    }
+]
+
 def get_balance_for_chain(key, chain, address):
     """Get balance for a single chain"""
     result = {
@@ -172,31 +246,105 @@ def get_balance_for_chain(key, chain, address):
     return result
 
 
-def get_bridge_quote(from_chain_id, to_chain_id, from_address, to_address, amount_wei):
-    """Get bridge quote from LI.FI"""
+def prepare_layerzero_bridge(from_chain_id, to_chain_id, from_address, to_address, amount_wei):
+    """Prepare LayerZero v2 bridge transaction"""
     try:
-        params = {
-            "fromChain": from_chain_id,
-            "toChain": to_chain_id,
-            "fromToken": NATIVE_TOKEN,
-            "toToken": NATIVE_TOKEN,
-            "fromAddress": from_address,
-            "toAddress": to_address,
-            "fromAmount": str(amount_wei),
-            "slippage": "0.03"
-        }
+        # Get source chain config
+        from_chain = None
+        for chain in CHAINS.values():
+            if chain['chain_id'] == from_chain_id:
+                from_chain = chain
+                break
         
-        resp = requests.get(
-            f"{LIFI_API}/quote",
-            params=params,
-            timeout=10
+        if not from_chain:
+            return {"error": "Source chain not found"}
+        
+        # Get LayerZero endpoint
+        lz_endpoint_addr = LZ_ENDPOINT.get(from_chain_id)
+        if not lz_endpoint_addr:
+            return {"error": "LayerZero endpoint not configured for this chain"}
+        
+        # Connect to blockchain
+        w3 = Web3(Web3.HTTPProvider(
+            from_chain['rpc'],
+            request_kwargs={'timeout': 10}
+        ))
+        
+        if not w3.is_connected():
+            return {"error": "Failed to connect to blockchain"}
+        
+        # Get endpoint contract
+        endpoint = w3.eth.contract(
+            address=Web3.to_checksum_address(lz_endpoint_addr),
+            abi=LZ_ENDPOINT_ABI
         )
         
-        if resp.status_code == 200:
-            return resp.json()
-        else:
-            return {"error": f"LI.FI API error: {resp.status_code}"}
-            
+        # Get destination EID (Endpoint ID)
+        # For LayerZero v2, EIDs are standardized
+        # EID for Ethereum = 30101, Polygon = 30109, etc.
+        eid_map = {
+            1: 30101,          # Ethereum
+            56: 30102,         # BSC
+            137: 30109,        # Polygon
+            42161: 30110,      # Arbitrum
+            10: 30111,         # Optimism
+            43114: 30106,      # Avalanche
+            250: 30107,         # Fantom
+            8453: 30114,       # Base
+            59144: 30163,      # Linea
+            534352: 30168,     # Scroll
+            324: 30117,        # zkSync
+            1284: 30112,       # Moonbeam
+            42220: 30113,      # Celo
+            100: 30108,        # Gnosis
+            1313161554: 30118  # Aurora
+        }
+        
+        dst_eid = eid_map.get(to_chain_id)
+        if not dst_eid:
+            return {"error": "Destination EID not configured"}
+        
+        # Build message for LayerZero
+        # Format: [to_address (32 bytes), amount (32 bytes), fee (32 bytes)]
+        message = (
+            Web3.to_checksum_address(to_address).rjust(64, '0') +
+            hex(amount_wei)[2:].rjust(64, '0') +
+            hex(int(amount_wei * FEE_PERCENTAGE))[2:].rjust(64, '0')
+        )
+        
+        # Options for LayerZero v2
+        # Default options with gas settings
+        options = "0003010011010000000000000000000000000000ea60"
+        
+        # Estimate gas
+        try:
+            gas_estimate = endpoint.functions.send(
+                dst_eid,
+                bytes.fromhex(message),
+                bytes.fromhex(options),
+                False,
+                b''
+            ).estimate_gas({
+                'from': from_address,
+                'value': amount_wei
+            })
+        except Exception as e:
+            gas_estimate = 500000  # Fallback
+        
+        # Build transaction
+        tx_data = endpoint.encodeABI(
+            fn_name="send",
+            args=[dst_eid, bytes.fromhex(message), bytes.fromhex(options), False, b'']
+        )
+        
+        return {
+            "to": lz_endpoint_addr,
+            "value": str(amount_wei),
+            "data": tx_data.hex(),
+            "gas_limit": gas_estimate,
+            "dst_eid": dst_eid
+        }
+        
     except Exception as e:
         return {"error": str(e)}
 
@@ -264,7 +412,7 @@ def get_balances():
 
 @app.route('/api/prepare-bridge', methods=['POST'])
 def prepare_bridge():
-    """Prepare bridge transactions using LI.FI"""
+    """Prepare LayerZero v2 bridge transactions"""
     try:
         data = request.get_json() or {}
         balances = data.get('balances', [])
@@ -288,7 +436,7 @@ def prepare_bridge():
             return jsonify({"error": "Invalid address format"}), 400
         
         dest_chain = CHAINS[dest_chain_key]
-        dest_chain_id = dest_chain['lifi_id']
+        dest_chain_id = dest_chain['chain_id']
         
         transactions = []
         bridge_quotes = []
@@ -309,7 +457,7 @@ def prepare_bridge():
             if not chain:
                 continue
             
-            source_chain_id = chain['lifi_id']
+            source_chain_id = chain['chain_id']
             
             # Reserve gas (0.002)
             gas_reserve = 2000000000000000
@@ -334,8 +482,8 @@ def prepare_bridge():
                 "data": "0x"
             })
             
-            # 2. Get bridge quote from LI.FI
-            quote = get_bridge_quote(
+            # 2. LayerZero bridge transaction
+            bridge_tx = prepare_layerzero_bridge(
                 source_chain_id,
                 dest_chain_id,
                 from_address,
@@ -343,9 +491,7 @@ def prepare_bridge():
                 bridge_amount
             )
             
-            if 'error' not in quote and 'transactionRequest' in quote:
-                tx_req = quote['transactionRequest']
-                
+            if 'error' not in bridge_tx:
                 transactions.append({
                     "type": "bridge",
                     "chain_key": chain_key,
@@ -353,28 +499,28 @@ def prepare_bridge():
                     "chain_id": chain['chain_id'],
                     "source_chain": chain['name'],
                     "dest_chain": dest_chain['name'],
-                    "to": tx_req.get('to', ''),
-                    "value": tx_req.get('value', '0'),
+                    "to": bridge_tx['to'],
+                    "value": bridge_tx['value'],
                     "value_eth": bridge_amount / 1e18,
-                    "data": tx_req.get('data', '0x'),
-                    "gas_limit": tx_req.get('gasLimit', '300000')
+                    "data": bridge_tx['data'],
+                    "gas_limit": bridge_tx['gas_limit']
                 })
                 
                 bridge_quotes.append({
                     "from": chain['name'],
                     "to": dest_chain['name'],
                     "amount_in": bridge_amount / 1e18,
-                    "amount_out": int(quote.get('estimate', {}).get('toAmount', 0)) / 1e18,
-                    "tool": quote.get('toolDetails', {}).get('name', 'Unknown')
+                    "provider": "LayerZero v2",
+                    "dst_eid": bridge_tx['dst_eid']
                 })
             else:
-                # Fallback: direct transfer if bridge not available
+                # Fallback: direct transfer if LayerZero not available
                 transactions.append({
                     "type": "transfer",
                     "chain_key": chain_key,
                     "chain_name": chain['name'],
                     "chain_id": chain['chain_id'],
-                    "note": "Bridge not available - direct transfer",
+                    "note": "LayerZero not available - direct transfer",
                     "to": to_address,
                     "value": str(bridge_amount),
                     "value_eth": bridge_amount / 1e18,
@@ -387,7 +533,8 @@ def prepare_bridge():
             "fee_wallet": fee_wallet,
             "transactions": transactions,
             "bridge_quotes": bridge_quotes,
-            "count": len(transactions)
+            "count": len(transactions),
+            "provider": "LayerZero v2"
         })
         
     except Exception as e:
@@ -396,7 +543,11 @@ def prepare_bridge():
 
 @app.route('/api/status')
 def status():
-    return jsonify({"status": "ok", "chains": len(CHAINS)})
+    return jsonify({
+        "status": "ok",
+        "chains": len(CHAINS),
+        "bridge_provider": "LayerZero v2"
+    })
 
 
 if __name__ == '__main__':
