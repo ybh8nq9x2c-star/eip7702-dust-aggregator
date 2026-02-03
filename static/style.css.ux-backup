@@ -253,55 +253,14 @@ header {
     transform: translateY(-2px);
 }
 
-
-
-
-/* CUSTOM CHECKBOX DESIGN - Elegant and Professional */
-.chain-card input[type="checkbox"] {
-    appearance: none;
-    -webkit-appearance: none;
-    width: 24px;
-    height: 24px;
-    border: 2px solid var(--border);
-    border-radius: 6px;
-    background: var(--bg-card);
+[.chain-card input[type="checkbox"] {
+    display: block;
+    width: 20px;
+    height: 20px;
     cursor: pointer;
-    transition: all 0.2s ease;
-    position: relative;
-    flex-shrink: 0;
+
 }
 
-.chain-card input[type="checkbox"]:hover {
-    border-color: var(--primary);
-    transform: scale(1.05);
-}
-
-.chain-card input[type="checkbox"]:checked {
-    background: var(--primary);
-    border-color: var(--primary);
-}
-
-.chain-card input[type="checkbox"]:checked::after {
-    content: '✓';
-    position: absolute;
-    color: var(--bg-dark);
-    font-size: 14px;
-    font-weight: 700;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-}
-
-.chain-card.selected {
-    border-color: var(--primary) !important;
-    background: linear-gradient(135deg, var(--bg-card) 0%, rgba(0, 255, 163, 0.05) 100%);
-    box-shadow: 0 0 0 2px rgba(0, 255, 163, 0.2), 0 4px 12px rgba(0, 0, 0, 0.3);
-}
-
-.chain-card.selected .chain-icon {
-    box-shadow: 0 0 0 2px var(--bg-dark), 0 0 0 4px var(--primary);
-    transform: scale(1.1);
-}
 .chain-card label {
     display: flex;
     align-items: center;
@@ -624,21 +583,16 @@ footer {
 }
 
 /* Chain card selected state */
+.chain-card.selected {
+    border-color: var(--primary) !important;
+    background: var(--bg-hover);
+    box-shadow: 0 0 0 2px rgba(0, 255, 163, 0.2);
+}
 
+.chain-card.selected .chain-icon {
+    box-shadow: 0 0 0 2px var(--bg-dark), 0 0 0 4px var(--primary);
+}
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+.chain-card.selected input[type="checkbox"]:checked {
+    accent-color: var(--primary);
+}
