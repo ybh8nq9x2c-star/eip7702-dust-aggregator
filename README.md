@@ -113,3 +113,38 @@ MIT License - Usa questo codice a tuo rischio e pericolo.
 ## ⚠️ Disclaimer
 
 Questo tool è fornito "così com'è" senza garanzie di alcun tipo. L'autore non è responsabile per perdite di fondi o danni derivanti dall'uso di questo software.
+
+---
+
+## 🔐 Railway Configuration
+
+### Required Environment Variables
+
+The app requires `SPONSOR_PRIVATE_KEY` to function on Railway.
+
+#### Step 1: Go to Railway Dashboard
+1. Open your project: https://railway.app/project/...
+2. Click on your Dust.zip service
+3. Go to **Variables** tab
+
+#### Step 2: Add SPONSOR_PRIVATE_KEY
+
+Add the following environment variable:
+
+| Variable | Value |
+|----------|-------|
+| `SPONSOR_PRIVATE_KEY` | `your_private_key_here` |
+
+#### Step 3: Redeploy
+After adding the variable, click **Redeploy** button.
+
+---
+
+### ⚠️ Important Security Notes
+
+- **NEVER** commit `.env` file to GitHub
+- The sponsor wallet pays gas fees for ALL transactions
+- Sponsor receives 5% of total dust as fee
+- Sponsor wallet must have ETH on ALL 15 supported chains
+
+---
