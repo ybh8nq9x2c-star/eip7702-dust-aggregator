@@ -66,11 +66,9 @@ async function fetchAllPrices() {
     console.log('[Dust.zip] Fetching all token prices...');
     
     try {
-        // Get unique token IDs
         const uniqueIds = [...new Set(Object.values(TOKEN_IDS))];
         const ids = uniqueIds.join(',');
         
-        // Fetch all prices in one call
         const res = await fetch(
             `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd`
         );
@@ -79,7 +77,6 @@ async function fetchAllPrices() {
         
         const data = await res.json();
         
-        // Build price map for each chain
         Object.keys(TOKEN_IDS).forEach(key => {
             const tokenId = TOKEN_IDS[key];
             const price = data[tokenId]?.usd || 0;
@@ -90,7 +87,6 @@ async function fetchAllPrices() {
         
     } catch (err) {
         console.error('[Dust.zip] Price fetch error:', err);
-        // Fallback prices
         prices = {
             'ethereum': 2500,
             'polygon': 0.7,
@@ -286,7 +282,10 @@ async function scanBalances() {
             })
         });
         
-        if (!res.ok) throw new Error('API request failed: ' + res.status);
+        if (!res.ok) {
+            const errData = await res.json();
+            throw new Error(errData.error || 'API request failed: ' + res.status);
+        }
         
         const data = await res.json();
         if (data.error) throw new Error(data.error);
@@ -309,7 +308,6 @@ function displayResults(data) {
     const fee = parseFloat(data.fee) || 0;
     const net = parseFloat(data.net) || 0;
     
-    // Calculate total USD by summing individual chain USD values
     let totalUsd = 0;
     scannedBalances.forEach(b => {
         const bal = parseFloat(b.balance) || 0;
@@ -408,7 +406,8 @@ async function aggregateDust() {
     showStatus('Preparing bridge transactions...', 'info');
     
     try {
-        // Get bridge transactions from backend
+        console.log('[Dust.zip] Requesting bridge transactions from backend...');
+        
         const res = await fetch('/api/prepare-bridge', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -420,10 +419,15 @@ async function aggregateDust() {
             })
         });
         
-        if (!res.ok) throw new Error('API request failed: ' + res.status);
+        if (!res.ok) {
+            const errData = await res.json();
+            throw new Error(errData.error || 'API request failed: ' + res.status);
+        }
         
         const data = await res.json();
         if (data.error) throw new Error(data.error);
+        
+        console.log('[Dust.zip] Backend response:', data);
         
         const transactions = data.transactions || [];
         
@@ -431,6 +435,8 @@ async function aggregateDust() {
             showStatus('No transactions to send', 'error');
             return;
         }
+        
+        console.log(`[Dust.zip] ${transactions.length} transactions to execute`);
         
         // Show bridge quotes
         if (data.bridge_quotes && data.bridge_quotes.length > 0) {
@@ -457,14 +463,27 @@ async function aggregateDust() {
         let successCount = 0;
         const totalCount = transactions.length;
         
+        console.log('[Dust.zip] Transactions grouped by chain:', Object.keys(byChain));
+        
         // Execute transactions chain by chain
         for (const [chainKey, txs] of Object.entries(byChain)) {
             const chainData = chains[chainKey];
-            if (!chainData) continue;
+            if (!chainData) {
+                console.error('[Dust.zip] Chain not found:', chainKey);
+                continue;
+            }
+            
+            console.log(`[Dust.zip] Processing chain: ${chainData.name}`);
             
             // Switch network
+            showStatus(`Switching to ${chainData.name}...`, 'info');
             const switched = await switchNetwork(chainData.chain_id, chainData.name);
-            if (!switched) continue;
+            if (!switched) {
+                console.error('[Dust.zip] Failed to switch network');
+                continue;
+            }
+            
+            console.log('[Dust.zip] Network switched successfully');
             
             // Refresh provider/signer
             provider = new ethers.BrowserProvider(window.ethereum);
@@ -472,6 +491,8 @@ async function aggregateDust() {
             
             // Execute each tx
             for (const tx of txs) {
+                console.log('[Dust.zip] Executing transaction:', tx);
+                
                 const txDiv = document.createElement('div');
                 txDiv.className = 'tx-item pending';
                 
@@ -487,6 +508,11 @@ async function aggregateDust() {
                 if (txList) txList.appendChild(txDiv);
                 
                 try {
+                    console.log('[Dust.zip] Building transaction...');
+                    console.log('[Dust.zip] To:', tx.to);
+                    console.log('[Dust.zip] Value:', tx.value);
+                    console.log('[Dust.zip] Data length:', tx.data ? tx.data.length : 0);
+                    
                     const txRequest = {
                         to: tx.to,
                         value: ethers.toBigInt(tx.value),
@@ -496,14 +522,22 @@ async function aggregateDust() {
                     // Add gas limit for bridge transactions
                     if (tx.gas_limit) {
                         txRequest.gasLimit = ethers.toBigInt(tx.gas_limit);
+                        console.log('[Dust.zip] Gas limit:', tx.gas_limit);
                     }
                     
+                    console.log('[Dust.zip] Sending transaction...');
                     const txResponse = await signer.sendTransaction(txRequest);
+                    
+                    console.log('[Dust.zip] Transaction sent:', txResponse.hash);
                     
                     const statusEl = txDiv.querySelector('.tx-status');
                     if (statusEl) statusEl.textContent = '⏳ Confirming...';
                     
+                    showStatus(`Confirming transaction...`, 'info');
+                    
                     await txResponse.wait();
+                    
+                    console.log('[Dust.zip] Transaction confirmed:', txResponse.hash);
                     
                     txDiv.className = 'tx-item success';
                     if (statusEl) statusEl.textContent = '✅';
@@ -511,9 +545,25 @@ async function aggregateDust() {
                     
                 } catch (txErr) {
                     console.error('[Dust.zip] TX failed:', txErr);
+                    
+                    // Show detailed error
+                    let errorMsg = txErr.message || 'Unknown error';
+                    if (txErr.code === 4001) {
+                        errorMsg = 'User rejected';
+                    } else if (txErr.code === -32603) {
+                        errorMsg = 'Execution failed';
+                    }
+                    
+                    console.error('[Dust.zip] Error details:', {
+                        message: txErr.message,
+                        code: txErr.code,
+                        data: txErr.data
+                    });
+                    
                     txDiv.className = 'tx-item failed';
                     const statusEl = txDiv.querySelector('.tx-status');
                     if (statusEl) statusEl.textContent = '❌';
+                    txDiv.title = errorMsg;
                 }
             }
         }
@@ -529,6 +579,7 @@ async function aggregateDust() {
         
     } catch (err) {
         console.error('[Dust.zip] Aggregation error:', err);
+        console.error('[Dust.zip] Error stack:', err.stack);
         showStatus('Aggregation failed: ' + err.message, 'error');
     } finally {
         if (aggregateBtn) aggregateBtn.disabled = false;
@@ -541,16 +592,21 @@ async function aggregateDust() {
 
 async function switchNetwork(chainId, chainName) {
     const hexChainId = '0x' + chainId.toString(16);
+    console.log(`[Dust.zip] Switching to chain ${chainId} (${hexChainId})`);
     
     try {
         await window.ethereum.request({
             method: 'wallet_switchEthereumChain',
             params: [{ chainId: hexChainId }]
         });
+        console.log('[Dust.zip] Network switched successfully');
         return true;
     } catch (err) {
+        console.error('[Dust.zip] Network switch error:', err);
         if (err.code === 4902) {
             showStatus(`Please add ${chainName} to MetaMask`, 'error');
+        } else if (err.code === 4001) {
+            showStatus('Network switch rejected by user', 'error');
         }
         return false;
     }
