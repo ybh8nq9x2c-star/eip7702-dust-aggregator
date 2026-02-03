@@ -88,8 +88,8 @@
             
             // Wait for DOM to update before syncing checkboxes
             setTimeout(() => {
-                updateChainCheckboxes();
-                console.log('✅ Checkboxes synced with selected chains');
+                updateChainSelection();
+                console.log('✅ Chain selection updated');
             }, 100);
             
         } catch (error) {
@@ -98,7 +98,7 @@
         }
     }
 
-    // Render chains grid
+    // Render chains grid - COMPLETELY REWRITTEN
     function renderChainsGrid() {
         const el = getElements();
         if (!el.chainsGrid) {
@@ -110,32 +110,51 @@
         console.log('🎨 Rendering', Object.keys(chains).length, 'chains...');
         
         Object.entries(chains).forEach(([key, chain]) => {
+            const isSelected = selectedChains.has(key);
             const chainEl = document.createElement('div');
-            chainEl.className = 'chain-card';
+            chainEl.className = `chain-card ${isSelected ? 'selected' : ''}`;
+            chainEl.dataset.chainKey = key;
+            
             chainEl.innerHTML = `
-                <input type="checkbox" id="chain-${key}" value="${key}" checked>
+                <input type="checkbox" id="chain-${key}" value="${key}" ${isSelected ? 'checked' : ''}>
                 <label for="chain-${key}">
                     <span class="chain-icon" style="background: ${chain.color}"></span>
                     <span class="chain-name">${chain.name}</span>
                     <span class="chain-symbol">${chain.symbol}</span>
                 </label>
             `;
-            el.chainsGrid.appendChild(chainEl);
             
-            // Attach event listener immediately
-            const checkbox = chainEl.querySelector('input');
+            // Add click handler to the ENTIRE card
+            chainEl.addEventListener('click', (e) => {
+                console.log('🔘 Chain card clicked:', key);
+                
+                // If clicking directly on checkbox, let it handle itself
+                if (e.target.type === 'checkbox') {
+                    handleChainChange(key, e.target.checked);
+                    return;
+                }
+                
+                // Otherwise, toggle the checkbox
+                const checkbox = chainEl.querySelector('input[type="checkbox"]');
+                if (checkbox) {
+                    checkbox.checked = !checkbox.checked;
+                    handleChainChange(key, checkbox.checked);
+                }
+            });
+            
+            // Also handle change event on checkbox
+            const checkbox = chainEl.querySelector('input[type="checkbox"]');
             if (checkbox) {
-                // Use both change and click for better compatibility
-                checkbox.addEventListener('change', (e) => handleChainChange(key, e.target.checked));
-                checkbox.addEventListener('click', (e) => {
-                    setTimeout(() => {
-                        console.log('🔘 Chain', key, 'clicked, checked:', e.target.checked);
-                    }, 0);
+                checkbox.addEventListener('change', (e) => {
+                    console.log('🔘 Checkbox changed:', key, 'checked:', e.target.checked);
+                    handleChainChange(key, e.target.checked);
                 });
             }
+            
+            el.chainsGrid.appendChild(chainEl);
         });
         
-        console.log('✅ Chains rendered');
+        console.log('✅ Chains rendered with click handlers');
     }
 
     // Handle chain selection change
@@ -151,19 +170,31 @@
         }
         
         console.log('📊 Current selection:', Array.from(selectedChains));
+        
+        // Update visual state
+        updateChainSelection();
     }
 
-    // Update checkboxes from selectedChains
-    function updateChainCheckboxes() {
-        console.log('🔄 Updating checkboxes from selectedChains...');
+    // Update chain selection visual state
+    function updateChainSelection() {
+        console.log('🔄 Updating chain selection visual state...');
         const el = getElements();
         if (!el.chainsGrid) return;
         
-        const checkboxes = el.chainsGrid.querySelectorAll('input[type="checkbox"]');
-        checkboxes.forEach(cb => {
-            const key = cb.value;
-            cb.checked = selectedChains.has(key);
-            console.log(`  Checkbox ${key}: ${cb.checked}`);
+        const chainCards = el.chainsGrid.querySelectorAll('.chain-card');
+        chainCards.forEach(card => {
+            const key = card.dataset.chainKey;
+            const checkbox = card.querySelector('input[type="checkbox"]');
+            
+            if (key && selectedChains.has(key)) {
+                card.classList.add('selected');
+                if (checkbox) checkbox.checked = true;
+                console.log(`  ✓ Chain ${key}: SELECTED`);
+            } else {
+                card.classList.remove('selected');
+                if (checkbox) checkbox.checked = false;
+                console.log(`  ✗ Chain ${key}: NOT SELECTED`);
+            }
         });
     }
 
@@ -186,7 +217,7 @@
             el.selectAllBtn.addEventListener('click', () => {
                 console.log('📌 Select All clicked');
                 Object.keys(chains).forEach(key => selectedChains.add(key));
-                updateChainCheckboxes();
+                updateChainSelection();
                 console.log('✅ All chains selected:', selectedChains.size);
             });
             console.log('✅ Select All listener attached');
@@ -196,158 +227,161 @@
             el.deselectAllBtn.addEventListener('click', () => {
                 console.log('📌 Deselect All clicked');
                 selectedChains.clear();
-                updateChainCheckboxes();
+                updateChainSelection();
                 console.log('✅ All chains deselected');
             });
             console.log('✅ Deselect All listener attached');
         }
         
         if (el.scanBtn) {
-            el.scanBtn.addEventListener('click', () => {
-                console.log('🔍 Scan button clicked');
-                console.log('📊 Selected chains before scan:', Array.from(selectedChains));
-                scanBalances();
-            });
-            console.log('✅ Scan listener attached');
+            el.scanBtn.addEventListener('click', scanBalances);
+            console.log('✅ Scan balances listener attached');
         }
         
         if (el.sweepBtn) {
-            el.sweepBtn.addEventListener('click', () => {
-                console.log('💨 Sweep button clicked');
-                executeSweep();
-            });
+            el.sweepBtn.addEventListener('click', executeSweep);
             console.log('✅ Sweep listener attached');
         }
         
-        // Manual address input
+        // Handle manual address input
         if (el.walletAddressInput) {
-            el.walletAddressInput.addEventListener('input', (e) => {
-                if (isValidAddress(e.target.value)) {
-                    currentAccount = e.target.value;
-                    updateWalletUI();
+            el.walletAddressInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    scanBalances();
                 }
             });
+            console.log('✅ Address input listener attached');
         }
         
-        // Destination chain change
-        const destChainSelect = document.getElementById('destinationChain');
-        if (destChainSelect) {
-            destChainSelect.addEventListener('change', () => {
-                if (scannedBalances.length > 0) {
-                    estimateCosts();
-                }
-            });
-        }
-        
-        // Balance checkbox changes
-        document.addEventListener('change', (e) => {
-            if (e.target.classList.contains('balance-checkbox')) {
-                console.log('💰 Balance checkbox changed');
-                estimateCosts();
-            }
-        });
-        
-        console.log('✅ All event listeners set up');
-    }
-
-    // Check existing connection
-    async function checkExistingConnection() {
-        const eth = getEthereum();
-        if (eth && eth.selectedAddress) {
-            currentAccount = eth.selectedAddress;
-            const el = getElements();
-            if (el.walletAddressInput) {
-                el.walletAddressInput.value = currentAccount;
-            }
-            updateWalletUI();
-        }
+        console.log('✅ All event listeners attached');
     }
 
     // Connect wallet
     async function connectWallet() {
+        console.log('🔗 Connecting wallet...');
+        
+        const eth = getEthereum();
+        if (!eth) {
+            showError('No wallet detected. Please install MetaMask.');
+            return;
+        }
+
         try {
-            const eth = getEthereum();
-            if (!eth) {
-                showError('MetaMask not installed. Please install MetaMask to connect.');
+            const provider = new ethers.BrowserProvider(eth);
+            const accounts = await provider.send('eth_requestAccounts', []);
+            
+            if (accounts.length === 0) {
+                showError('No accounts found');
                 return;
             }
 
-            const accounts = await eth.request({
-                method: 'eth_requestAccounts'
-            });
-
-            if (accounts && accounts.length > 0) {
-                currentAccount = accounts[0];
-                const el = getElements();
-                if (el.walletAddressInput) {
-                    el.walletAddressInput.value = currentAccount;
-                }
-                updateWalletUI();
+            currentAccount = accounts[0];
+            console.log('✅ Wallet connected:', currentAccount);
+            
+            const el = getElements();
+            if (el.connectWalletBtn) {
+                el.connectWalletBtn.classList.add('connected');
+                el.connectWalletBtn.textContent = 'Wallet Connected';
             }
+            if (el.walletInfo) {
+                el.walletInfo.classList.remove('hidden');
+            }
+            if (el.walletAddress) {
+                el.walletAddress.textContent = currentAccount.slice(0, 6) + '...' + currentAccount.slice(-4);
+            }
+            if (el.walletAddressInput) {
+                el.walletAddressInput.value = currentAccount;
+            }
+            
+            showSuccess('Wallet connected successfully!');
         } catch (error) {
-            console.error('❌ Connection error:', error);
+            console.error('❌ Failed to connect wallet:', error);
             showError('Failed to connect wallet: ' + error.message);
         }
     }
 
     // Disconnect wallet
     function disconnectWallet() {
+        console.log('🔌 Disconnecting wallet...');
         currentAccount = null;
+        
         const el = getElements();
+        if (el.connectWalletBtn) {
+            el.connectWalletBtn.classList.remove('connected');
+            el.connectWalletBtn.textContent = 'Connect Wallet';
+        }
+        if (el.walletInfo) {
+            el.walletInfo.classList.add('hidden');
+        }
         if (el.walletAddressInput) {
             el.walletAddressInput.value = '';
         }
-        updateWalletUI();
-        if (el.resultsSection) {
-            el.resultsSection.classList.add('hidden');
-        }
+        
+        console.log('✅ Wallet disconnected');
+        showSuccess('Wallet disconnected');
     }
 
-    // Update wallet UI
-    function updateWalletUI() {
-        const el = getElements();
-        if (currentAccount) {
-            if (el.connectWalletBtn) el.connectWalletBtn.classList.add('hidden');
-            if (el.walletInfo) el.walletInfo.classList.remove('hidden');
-            if (el.walletAddress) {
-                el.walletAddress.textContent = `${currentAccount.slice(0, 6)}...${currentAccount.slice(-4)}`;
+    // Check existing connection
+    async function checkExistingConnection() {
+        const eth = getEthereum();
+        if (!eth) return;
+
+        try {
+            const provider = new ethers.BrowserProvider(eth);
+            const accounts = await provider.listAccounts();
+            if (accounts.length > 0) {
+                currentAccount = accounts[0].address;
+                console.log('✅ Existing connection:', currentAccount);
+                
+                const el = getElements();
+                if (el.connectWalletBtn) {
+                    el.connectWalletBtn.classList.add('connected');
+                    el.connectWalletBtn.textContent = 'Wallet Connected';
+                }
+                if (el.walletInfo) {
+                    el.walletInfo.classList.remove('hidden');
+                }
+                if (el.walletAddress) {
+                    el.walletAddress.textContent = currentAccount.slice(0, 6) + '...' + currentAccount.slice(-4);
+                }
+                if (el.walletAddressInput) {
+                    el.walletAddressInput.value = currentAccount;
+                }
             }
-        } else {
-            if (el.connectWalletBtn) el.connectWalletBtn.classList.remove('hidden');
-            if (el.walletInfo) el.walletInfo.classList.add('hidden');
+        } catch (error) {
+            console.warn('Could not check existing connection:', error);
         }
     }
 
     // Scan balances
     async function scanBalances() {
-        const el = getElements();
-        if (!el.walletAddressInput) {
-            showError('Wallet input not found');
-            return;
-        }
-
-        const address = el.walletAddressInput.value.trim();
+        console.log('🔍 Scanning balances...');
         
-        console.log('🔍 Starting balance scan...');
-        console.log('📧 Address:', address);
-        console.log('🔗 Selected chains:', Array.from(selectedChains));
-        console.log('🔢 Selected chains count:', selectedChains.size);
-        
-        if (!isValidAddress(address)) {
-            console.error('❌ Invalid address');
-            showError('Please enter a valid wallet address');
-            return;
-        }
-
+        // Check if any chains are selected
         if (selectedChains.size === 0) {
-            console.error('❌ No chains selected');
-            showError('Please select at least one chain');
+            showError('Please select at least one chain to scan');
             return;
         }
-
-        showLoading('Scanning balances across chains...');
+        
+        // Get address
+        let address;
+        const el = getElements();
+        if (el.walletAddressInput && el.walletAddressInput.value) {
+            address = el.walletAddressInput.value.trim();
+        }
+        
+        if (!address) {
+            showError('Please enter a wallet address or connect your wallet');
+            return;
+        }
+        
+        console.log('📋 Address:', address);
+        console.log('📋 Selected chains:', Array.from(selectedChains));
+        
+        // Show loading
+        if (el.loading) el.loading.classList.remove('hidden');
         if (el.resultsSection) el.resultsSection.classList.add('hidden');
-
+        
         try {
             const response = await fetch('/api/balances', {
                 method: 'POST',
@@ -357,29 +391,32 @@
                     chains: Array.from(selectedChains)
                 })
             });
-
+            
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to scan balances');
+            }
+            
             const data = await response.json();
-            console.log('📊 Scan response:', data);
+            console.log('✅ Balances received:', data.balances.length, 'chains with dust');
             
-            if (data.error) {
-                throw new Error(data.error);
-            }
-
-            scannedBalances = (data.balances || []).filter(b => b.balance > 0 && b.balance_usd > 0.01);
-            console.log('✅ Valid balances found:', scannedBalances.length);
+            scannedBalances = data.balances;
             
+            // Hide loading
+            if (el.loading) el.loading.classList.add('hidden');
+            
+            // Display results
             if (scannedBalances.length === 0) {
-                hideLoading();
-                showInfo('No balances found across selected chains. Try selecting more chains.');
-                return;
+                showInfo('No dust found on selected chains');
+                if (el.resultsSection) el.resultsSection.classList.add('hidden');
+            } else {
+                displayResults(data);
+                showSuccess(`Found ${scannedBalances.length} chains with dust`);
             }
-
-            displayResults(data);
-            hideLoading();
             
         } catch (error) {
-            console.error('❌ Scan error:', error);
-            hideLoading();
+            console.error('❌ Failed to scan balances:', error);
+            if (el.loading) el.loading.classList.add('hidden');
             showError('Failed to scan balances: ' + error.message);
         }
     }
@@ -387,254 +424,219 @@
     // Display results
     function displayResults(data) {
         const el = getElements();
-        if (el.resultsSection) el.resultsSection.classList.remove('hidden');
-        if (el.txStatusSection) el.txStatusSection.classList.add('hidden');
+        if (!el.resultsSection) return;
         
-        // Update totals
-        const totalUsdEl = document.getElementById('totalUSD');
-        if (totalUsdEl) totalUsdEl.textContent = `$${(data.total_usd || 0).toFixed(2)}`;
-        
-        const chainCountEl = document.getElementById('chainCount');
-        if (chainCountEl) chainCountEl.textContent = `${scannedBalances.length} chain(s) with balance`;
-        
-        // Display balances list
-        const balancesList = document.querySelector('.balances-list');
-        if (balancesList) {
-            balancesList.innerHTML = '';
+        // Build results HTML
+        let html = `
+            <div class="totals">
+                <div class="total-row">
+                    <span>Total Balance</span>
+                    <div class="total-values">
+                        <span>${data.total_balance} ${data.total_symbol}</span>
+                        <span class="usd">≈ $${data.total_usd}</span>
+                    </div>
+                </div>
+                <div class="total-row fee">
+                    <span>Fee (5%)</span>
+                    <div class="total-values">
+                        <span>-${data.fee} ${data.total_symbol}</span>
+                        <span class="usd">≈ -$${data.fee_usd}</span>
+                    </div>
+                </div>
+                <div class="total-row net">
+                    <span>You'll Receive</span>
+                    <div class="total-values">
+                        <span>${data.net_balance} ${data.total_symbol}</span>
+                        <span class="usd">≈ $${data.net_usd}</span>
+                    </div>
+                </div>
+            </div>
             
-            scannedBalances.forEach(bal => {
-                const balanceEl = document.createElement('div');
-                balanceEl.className = 'balance-card';
-                balanceEl.innerHTML = `
-                    <div class="balance-header">
-                        <div class="chain-info">
-                            <span class="chain-icon" style="background: ${bal.color}"></span>
-                            <span class="chain-name">${bal.name}</span>
+            <div class="destination-section">
+                <h3>Destination Chain</h3>
+                <div class="dest-row">
+                    <label>Select where to send your dust:</label>
+                    <select class="chain-select" id="destChain">
+                        ${Object.entries(chains).map(([key, chain]) => 
+                            `<option value="${key}">${chain.name} (${chain.symbol})</option>`
+                        ).join('')}
+                    </select>
+                </div>
+            </div>
+            
+            <h3>Balances Found</h3>
+            <div class="balances-list">
+                ${scannedBalances.map(b => `
+                    <div class="balance-card" data-chain="${b.chain}">
+                        <div class="balance-header">
+                            <input type="checkbox" class="balance-checkbox" checked>
+                            <div class="chain-info">
+                                <span class="chain-icon" style="background: ${b.color}"></span>
+                                <span>${b.chain}</span>
+                            </div>
                         </div>
-                        <span class="balance-amount">${(bal.balance || 0).toFixed(4)} ${bal.symbol}</span>
+                        <div class="balance-footer">
+                            <span class="balance-amount">${b.balance} ${b.symbol}</span>
+                            <span class="balance-usd">≈ $${b.balance_usd}</span>
+                        </div>
                     </div>
-                    <div class="balance-footer">
-                        <span class="balance-usd">≈ $${(bal.balance_usd || 0).toFixed(2)}</span>
-                        <span class="checkbox-wrapper">
-                            <input type="checkbox" class="balance-checkbox" data-chain="${bal.key}" checked>
-                        </span>
-                    </div>
-                `;
-                balancesList.appendChild(balanceEl);
-            });
-        }
-
-        estimateCosts();
-    }
-
-    // Estimate costs
-    async function estimateCosts() {
-        try {
-            const destChainSelect = document.getElementById('destinationChain');
-            const destinationChain = destChainSelect ? destChainSelect.value : 'ethereum';
-            
-            const selectedBalances = scannedBalances.filter(b => {
-                const checkbox = document.querySelector(`.balance-checkbox[data-chain="${b.key}"]`);
-                return checkbox && checkbox.checked;
-            });
-
-            if (selectedBalances.length === 0) {
-                updateFeeUI(0, 0, 0, 0);
-                return;
-            }
-
-            const response = await fetch('/api/estimate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    from_address: currentAccount,
-                    to_address: currentAccount,
-                    destination_chain: destinationChain,
-                    balances: selectedBalances
-                })
-            });
-
-            const data = await response.json();
-            
-            if (data.error) {
-                console.error('❌ Estimate error:', data.error);
-                return;
-            }
-
-            currentEstimates = data.estimates || [];
-            const summary = data.summary || {};
-
-            updateFeeUI(
-                summary.total_gas_cost_usd || 0,
-                summary.total_service_fee_usd || 0,
-                summary.total_fees_usd || 0,
-                summary.total_transfer_usd || 0
-            );
-
-        } catch (error) {
-            console.error('❌ Estimate error:', error);
-        }
-    }
-
-    // Update fee UI
-    function updateFeeUI(gasCost, serviceFee, totalFees, netReceive) {
-        const gasCostEl = document.getElementById('totalGasCost');
-        const serviceFeeEl = document.getElementById('totalServiceFee');
-        const totalFeesEl = document.getElementById('totalFees');
-        const netReceiveEl = document.getElementById('netReceive');
-
-        if (gasCostEl) gasCostEl.textContent = `$${gasCost.toFixed(2)}`;
-        if (serviceFeeEl) serviceFeeEl.textContent = `$${serviceFee.toFixed(2)}`;
-        if (totalFeesEl) totalFeesEl.textContent = `$${totalFees.toFixed(2)}`;
-        if (netReceiveEl) netReceiveEl.textContent = `$${netReceive.toFixed(2)}`;
-    }
-
-    // Execute sponsored sweep
-    async function executeSweep() {
-        console.log('💨 Starting sweep...');
-        console.log('📊 Current estimates:', currentEstimates.length);
-        console.log('👤 Current account:', currentAccount);
+                `).join('')}
+            </div>
+        `;
         
-        if (currentEstimates.length === 0) {
-            console.error('❌ No estimates found');
+        el.resultsSection.innerHTML = html;
+        el.resultsSection.classList.remove('hidden');
+        
+        console.log('✅ Results displayed');
+    }
+
+    // Execute sweep
+    async function executeSweep() {
+        console.log('🚀 Executing sweep...');
+        
+        if (scannedBalances.length === 0) {
             showError('No balances selected. Please scan first.');
             return;
         }
-
-        if (!currentAccount) {
-            console.error('❌ No account connected');
-            showError('Please connect wallet first');
+        
+        const el = getElements();
+        const destChainSelect = document.getElementById('destChain');
+        const destChain = destChainSelect ? destChainSelect.value : null;
+        
+        if (!destChain) {
+            showError('Please select a destination chain');
             return;
         }
-
-        const destChainSelect = document.getElementById('destinationChain');
-        const destinationChain = destChainSelect ? destChainSelect.value : 'ethereum';
-
-        showLoading('Preparing EIP-7702 sponsored sweep...');
-
+        
+        // Get selected balances
+        const selectedBalances = [];
+        document.querySelectorAll('.balance-checkbox:checked').forEach(cb => {
+            const card = cb.closest('.balance-card');
+            if (card) {
+                const chainKey = card.dataset.chain;
+                const balance = scannedBalances.find(b => b.chain === chainKey);
+                if (balance) selectedBalances.push(balance);
+            }
+        });
+        
+        if (selectedBalances.length === 0) {
+            showError('No balances selected');
+            return;
+        }
+        
+        console.log('📋 Destination chain:', destChain);
+        console.log('📋 Selected balances:', selectedBalances.length);
+        
+        // Show loading
+        if (el.loading) el.loading.classList.remove('hidden');
+        
         try {
             const response = await fetch('/api/sweep', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    from_address: currentAccount,
-                    to_address: currentAccount,
-                    estimates: currentEstimates,
-                    signature: '0x'
+                    balances: selectedBalances,
+                    dest_chain: destChain
                 })
             });
-
-            const data = await response.json();
             
-            if (data.error) {
-                throw new Error(data.error);
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to execute sweep');
             }
-
-            hideLoading();
-            displayTransactionStatus(data.transactions);
-            showSuccess('EIP-7702 sponsored sweep initiated! Sponsor is processing transactions...');
-
+            
+            const result = await response.json();
+            console.log('✅ Sweep executed:', result.transactions);
+            
+            if (el.loading) el.loading.classList.add('hidden');
+            
+            displayTransactions(result.transactions);
+            showSuccess('Sweep completed! Check transaction hashes for details.');
+            
         } catch (error) {
-            console.error('❌ Sweep error:', error);
-            hideLoading();
+            console.error('❌ Failed to execute sweep:', error);
+            if (el.loading) el.loading.classList.add('hidden');
             showError('Failed to execute sweep: ' + error.message);
         }
     }
 
-    // Display transaction status
-    function displayTransactionStatus(transactions) {
+    // Display transactions
+    function displayTransactions(transactions) {
         const el = getElements();
-        if (el.txStatusSection) el.txStatusSection.classList.remove('hidden');
-        const txList = document.getElementById('txList');
-        if (txList) {
-            txList.innerHTML = '';
-
-            (transactions || []).forEach((tx, index) => {
-                const txEl = document.createElement('div');
-                txEl.className = 'tx-card';
-                txEl.innerHTML = `
+        if (!el.txStatusSection) return;
+        
+        let html = '<h3>Transactions</h3><div class="tx-list">';
+        
+        transactions.forEach(tx => {
+            html += `
+                <div class="tx-card">
                     <div class="tx-header">
-                        <span class="tx-chain">${tx.chain_name}</span>
-                        <span class="tx-status pending">Pending</span>
+                        <span class="tx-chain">${tx.chain}</span>
+                        <span class="tx-status ${tx.status}">${tx.status}</span>
                     </div>
                     <div class="tx-body">
                         <div class="tx-row">
-                            <span>Amount:</span>
-                            <span>${((parseFloat(tx.value) || 0) / 1e18).toFixed(6)} ETH</span>
+                            <span>Amount</span>
+                            <span>${tx.amount} ${tx.symbol}</span>
                         </div>
                         <div class="tx-row">
-                            <span>Type:</span>
-                            <span>EIP-7702 Sponsored</span>
+                            <span>Fee</span>
+                            <span>${tx.fee} ${tx.symbol}</span>
                         </div>
                         <div class="tx-row">
-                            <span>Sponsor:</span>
-                            <span>${(tx.from || '').slice(0, 8)}...</span>
+                            <span>Transaction</span>
+                            <a href="${tx.explorer}" target="_blank">${tx.tx_hash}</a>
                         </div>
                     </div>
-                `;
-                txList.appendChild(txEl);
-            });
-        }
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        el.txStatusSection.innerHTML = html;
+        el.txStatusSection.classList.remove('hidden');
     }
 
-    // Utility functions
-    function isValidAddress(address) {
-        return /^0x[a-fA-F0-9]{40}$/.test(address);
-    }
-
-    function showLoading(message) {
-        const el = getElements();
-        if (el.loading) {
-            const span = el.loading.querySelector('span');
-            if (span) span.textContent = message;
-            el.loading.classList.remove('hidden');
-        }
-    }
-
-    function hideLoading() {
-        const el = getElements();
-        if (el.loading) el.loading.classList.add('hidden');
+    // Helper functions
+    function showSuccess(message) {
+        showStatus(message, 'success');
     }
 
     function showError(message) {
-        console.error('❌ Error:', message);
-        setTimeout(() => alert('Error: ' + message), 100);
-    }
-
-    function showSuccess(message) {
-        console.log('✅ Success:', message);
-        setTimeout(() => alert('Success: ' + message), 100);
+        showStatus(message, 'error');
+        console.error('❌', message);
     }
 
     function showInfo(message) {
-        console.info('ℹ️ Info:', message);
-        setTimeout(() => alert('Info: ' + message), 100);
+        showStatus(message, 'info');
     }
 
-    // Handle account changes safely
-    const eth = getEthereum();
-    if (eth && typeof eth.on === 'function') {
-        eth.on('accountsChanged', (accounts) => {
-            if (accounts && accounts.length > 0) {
-                currentAccount = accounts[0];
-                const el = getElements();
-                if (el.walletAddressInput) {
-                    el.walletAddressInput.value = currentAccount;
+    function showStatus(message, type) {
+        const existing = document.querySelector('.status');
+        if (existing) existing.remove();
+        
+        const status = document.createElement('div');
+        status.className = `status ${type}`;
+        status.textContent = message;
+        
+        const container = document.querySelector('.container');
+        if (container) {
+            container.insertBefore(status, container.firstChild);
+            
+            // Auto remove after 5 seconds
+            setTimeout(() => {
+                if (status && status.parentNode) {
+                    status.remove();
                 }
-                updateWalletUI();
-            } else {
-                disconnectWallet();
-            }
-        });
+            }, 5000);
+        }
     }
 
-    // Initialize on DOM ready
+    // Start
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {
         init();
     }
-
-    console.log('✅ ZeroDust script loaded and ready');
 
 })();
