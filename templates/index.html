@@ -3,162 +3,171 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dust.zip - Cross-Chain Dust Aggregator</title>
-    <link rel="stylesheet" href="/static/css/style.css">
+    <title>Dust.zip | ZeroDust EIP-7702 Aggregator</title>
+    <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
     <div class="container">
         <!-- Header -->
         <header>
             <div class="logo">
-                <span class="logo-icon">🌉</span>
-                <h1>Dust.zip</h1>
+                <span class="logo-icon">✦</span>
+                <span class="logo-text">Dust.zip</span>
             </div>
-            <p class="tagline">Aggregate dust from 15 chains into one</p>
-            <button id="connectBtn" class="connect-btn">
-                <span id="connectText">Connect Wallet</span>
-            </button>
+            <div class="wallet-section">
+                <button id="connectWalletBtn" class="btn-connect">Connect Wallet</button>
+                <div id="walletInfo" class="wallet-info hidden">
+                    <span id="walletAddress"></span>
+                    <button id="disconnectBtn" class="btn-disconnect">×</button>
+                </div>
+            </div>
         </header>
 
-        <!-- Status -->
-        <div id="status" class="status hidden"></div>
-
-        <!-- Source Address -->
-        <section class="card">
-            <h2>📍 Source Wallet</h2>
-            <input type="text" id="addressInput" class="address-input" 
-                   placeholder="0x... or connect wallet" />
-        </section>
-
-        <!-- Chain Selection -->
-        <section class="card">
-            <div class="section-header">
-                <h2>⛓️ Source Chains</h2>
-                <div class="chain-actions">
-                    <button id="selectAllBtn" class="btn-small">Select All</button>
-                    <button id="deselectAllBtn" class="btn-small">Deselect All</button>
+        <!-- Main Content -->
+        <main>
+            <!-- Input Section -->
+            <section class="input-section">
+                <div class="input-group">
+                    <label for="walletAddressInput">Wallet Address</label>
+                    <input type="text" id="walletAddressInput" placeholder="0x..." class="input-field">
                 </div>
-            </div>
-            <div id="chainGrid" class="chain-grid"></div>
-        </section>
-
-        <!-- Scan Button -->
-        <button id="scanBtn" class="action-btn scan-btn">
-            🔍 Scan Balances
-        </button>
-
-        <!-- Loading -->
-        <div id="loading" class="loading hidden">
-            <div class="spinner"></div>
-            <p id="loadingText">Scanning chains...</p>
-        </div>
-
-        <!-- Results -->
-        <section id="results" class="card results hidden">
-            <h2>💰 Balances Found</h2>
-            
-            <div class="totals">
-                <div class="total-row">
-                    <span>Total Value:</span>
-                    <div class="total-values">
-                        <span id="totalValue">0.000000 ETH</span>
-                        <span id="totalUsd" class="usd">$0.00</span>
-                    </div>
-                </div>
-                <div class="total-row fee">
-                    <span>Platform Fee (5%):</span>
-                    <span id="feeValue">0.000000 ETH</span>
-                </div>
-                <div class="total-row net">
-                    <span>You Receive:</span>
-                    <span id="netValue">0.000000 ETH</span>
-                </div>
-            </div>
-
-            <div id="balanceList" class="balance-list"></div>
-
-            <!-- Destination -->
-            <div class="destination-section">
-                <h3>🎯 Bridge Destination</h3>
                 
-                <div class="dest-row">
-                    <label>Destination Chain:</label>
-                    <select id="destChainSelect" class="chain-select">
-                        <!-- Populated by JS -->
+                <div class="input-group">
+                    <label for="destinationChain">Destination Chain</label>
+                    <select id="destinationChain" class="select-field">
+                        <option value="ethereum">Ethereum (ETH)</option>
+                        <option value="polygon">Polygon (MATIC)</option>
+                        <option value="bsc">BNB Chain (BNB)</option>
+                        <option value="arbitrum">Arbitrum (ETH)</option>
+                        <option value="optimism">Optimism (ETH)</option>
+                        <option value="base">Base (ETH)</option>
+                        <option value="avalanche">Avalanche (AVAX)</option>
+                        <option value="fantom">Fantom (FTM)</option>
+                        <option value="linea">Linea (ETH)</option>
+                        <option value="scroll">Scroll (ETH)</option>
+                        <option value="zksync">zkSync Era (ETH)</option>
+                        <option value="moonbeam">Moonbeam (GLMR)</option>
+                        <option value="celo">Celo (CELO)</option>
+                        <option value="gnosis">Gnosis (xDAI)</option>
+                        <option value="aurora">Aurora (ETH)</option>
                     </select>
                 </div>
-                
-                <div class="dest-row">
-                    <label>Destination Address:</label>
-                    <input type="text" id="destAddressInput" class="address-input" 
-                           placeholder="0x... (defaults to connected wallet)" />
+            </section>
+
+            <!-- Chain Selection -->
+            <section class="chains-section">
+                <div class="section-header">
+                    <h2>Select Chains to Scan</h2>
+                    <div class="chain-controls">
+                        <button id="selectAllBtn" class="btn-small">Select All</button>
+                        <button id="deselectAllBtn" class="btn-small">Deselect All</button>
+                    </div>
                 </div>
+                <div id="chainsGrid" class="chains-grid">
+                    <!-- Chains will be populated dynamically -->
+                </div>
+            </section>
+
+            <!-- Scan Button -->
+            <section class="action-section">
+                <button id="scanBtn" class="btn-primary btn-large">
+                    <span>Scan Balances</span>
+                </button>
+            </section>
+
+            <!-- Loading -->
+            <div id="loading" class="loading hidden">
+                <div class="spinner"></div>
+                <span>Scanning chains...</span>
             </div>
 
-            <button id="aggregateBtn" class="action-btn aggregate-btn">
-                🌉 Bridge & Aggregate Dust
-            </button>
-        </section>
+            <!-- Results -->
+            <section id="resultsSection" class="results-section hidden">
+                <div class="summary-card">
+                    <h3>Total Value Found</h3>
+                    <div class="total-amount">
+                        <span id="totalUSD">$0.00</span>
+                    </div>
+                    <p id="chainCount">0 chains with balance</p>
+                </div>
 
-        <!-- Transaction Progress -->
-        <section id="txProgress" class="card hidden">
-            <h2>📝 Transactions</h2>
-            <div id="txList" class="tx-list"></div>
-        </section>
+                <div class="balances-list">
+                    <!-- Balances will be populated here -->
+                </div>
+
+                <!-- Estimate Section -->
+                <div class="estimate-section">
+                    <h3>Estimate Costs</h3>
+                    <div class="estimate-card">
+                        <div class="estimate-row">
+                            <span>Network Costs (Gas)</span>
+                            <span id="totalGasCost" class="value">$0.00</span>
+                        </div>
+                        <div class="estimate-row">
+                            <span>Service Fee (5%)</span>
+                            <span id="totalServiceFee" class="value">$0.00</span>
+                        </div>
+                        <div class="estimate-row total">
+                            <span>Total Fees</span>
+                            <span id="totalFees" class="value">$0.00</span>
+                        </div>
+                        <div class="estimate-row net">
+                            <span>You'll Receive</span>
+                            <span id="netReceive" class="value large">$0.00</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action -->
+                <section class="action-section">
+                    <button id="sweepBtn" class="btn-success btn-large">
+                        <span>Execute Sponsored Sweep</span>
+                    </button>
+                    <p class="sponsored-note">
+                        ✦ Sponsor pays gas • Only pay network costs + 5% fee<br>
+                        ✦ 100% of your balance transferred • No dust left behind
+                    </p>
+                </section>
+            </section>
+
+            <!-- Transaction Status -->
+            <section id="txStatusSection" class="tx-status hidden">
+                <h3>Transaction Status</h3>
+                <div id="txList" class="tx-list">
+                    <!-- Transactions will appear here -->
+                </div>
+            </section>
+        </main>
 
         <!-- Footer -->
         <footer>
-            <p>Powered by LI.FI Bridge Aggregator</p>
+            <p>Powered by EIP-7702 • Sponsored Transactions</p>
+            <p class="fine-print">Service Fee: 5% (min $0.05, max $0.50) • Gas Buffer: 20%</p>
         </footer>
     </div>
 
-    <!-- Scripts -->
+    <!-- Load Ethers.js with fallback -->
     <script>
-        function loadEthers() {
-            return new Promise((resolve, reject) => {
-                if (typeof ethers !== 'undefined') {
-                    resolve();
-                    return;
-                }
-                
-                const sources = [
-                    'https://unpkg.com/ethers@6.9.0/dist/ethers.umd.min.js',
-                    'https://cdn.jsdelivr.net/npm/ethers@6.9.0/dist/ethers.umd.min.js'
-                ];
-                
-                function tryLoad(index) {
-                    if (index >= sources.length) {
-                        reject(new Error('Failed to load Ethers.js'));
-                        return;
-                    }
-                    
-                    const script = document.createElement('script');
-                    script.src = sources[index];
-                    script.onload = () => {
-                        if (typeof ethers !== 'undefined') {
-                            console.log('[Dust.zip] Ethers loaded from', sources[index]);
-                            resolve();
-                        } else {
-                            tryLoad(index + 1);
-                        }
-                    };
-                    script.onerror = () => tryLoad(index + 1);
-                    document.head.appendChild(script);
-                }
-                
-                tryLoad(0);
-            });
-        }
-        
-        loadEthers().then(() => {
-            const appScript = document.createElement('script');
-            appScript.src = '/static/js/app.js';
-            document.body.appendChild(appScript);
-        }).catch(err => {
-            console.error('[Dust.zip] Failed to load Ethers:', err);
-            document.getElementById('status').textContent = 'Failed to load Ethers.js';
-            document.getElementById('status').classList.remove('hidden');
-        });
+        (function loadEthers() {
+            var script = document.createElement('script');
+            script.src = 'https://unpkg.com/ethers@6.9.0/dist/ethers.umd.min.js';
+            script.onerror = function() {
+                var fallback = document.createElement('script');
+                fallback.src = 'https://cdn.jsdelivr.net/npm/ethers@6.9.0/dist/ethers.umd.min.js';
+                fallback.onload = function() {
+                    var appScript = document.createElement('script');
+                    appScript.src = '/static/js/app.js';
+                    document.body.appendChild(appScript);
+                };
+                document.body.appendChild(fallback);
+            };
+            script.onload = function() {
+                var appScript = document.createElement('script');
+                appScript.src = '/static/js/app.js';
+                document.body.appendChild(appScript);
+            };
+            document.body.appendChild(script);
+        })();
     </script>
 </body>
 </html>
