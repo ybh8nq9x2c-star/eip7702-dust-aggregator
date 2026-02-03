@@ -167,7 +167,8 @@ header {
     gap: 10px;
 }
 
-.chain-item {
+/* FIX: Chain card styling to match JS-generated HTML */
+.chain-card {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -180,36 +181,42 @@ header {
     font-size: 0.9rem;
 }
 
-.chain-item:hover { border-color: var(--accent); }
-
-.chain-item.selected {
+.chain-card:hover {
     border-color: var(--accent);
-    background: rgba(0, 212, 170, 0.1);
+    box-shadow: 0 2px 8px rgba(0, 212, 170, 0.2);
 }
 
-.chain-check {
+.chain-card input[type="checkbox"] {
     width: 18px;
     height: 18px;
-    border-radius: 4px;
-    background: var(--bg);
-    border: 1px solid var(--border);
+    cursor: pointer;
+    accent-color: var(--accent);
+    flex-shrink: 0;
+}
+
+.chain-card label {
     display: flex;
     align-items: center;
-    justify-content: center;
-    font-size: 12px;
-    color: transparent;
+    gap: 6px;
+    cursor: pointer;
+    flex: 1;
 }
 
-.chain-item.selected .chain-check {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: #000;
-}
-
-.chain-dot {
-    width: 10px;
-    height: 10px;
+.chain-icon {
+    width: 20px;
+    height: 20px;
     border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.chain-name {
+    font-weight: 500;
+    color: var(--text);
+}
+
+.chain-symbol {
+    color: var(--text-dim);
+    font-size: 0.8rem;
 }
 
 /* Action Buttons */
@@ -303,14 +310,14 @@ header {
 .total-row.net { color: var(--success); font-weight: 600; font-size: 1.1rem; }
 
 /* Balance List */
-.balance-list {
+.balances-list {
     display: flex;
     flex-direction: column;
     gap: 10px;
     margin-bottom: 24px;
 }
 
-.balance-item {
+.balance-card {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -319,20 +326,38 @@ header {
     border-radius: 10px;
 }
 
-.bal-chain {
+.balance-header {
     display: flex;
     align-items: center;
     gap: 10px;
 }
 
-.bal-values { text-align: right; }
-.bal-eth { font-weight: 600; }
-.bal-usd { color: var(--text-dim); font-size: 0.9rem; }
+.chain-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
 
-.no-dust {
-    text-align: center;
+.balance-amount {
+    font-weight: 600;
+}
+
+.balance-footer {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.balance-usd {
     color: var(--text-dim);
-    padding: 30px;
+    font-size: 0.9rem;
+}
+
+.balance-checkbox {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent);
+    cursor: pointer;
 }
 
 /* Destination Section */
@@ -384,25 +409,48 @@ header {
     gap: 10px;
 }
 
-.tx-item {
-    display: grid;
-    grid-template-columns: 1fr 1.5fr 1fr auto;
-    gap: 10px;
-    align-items: center;
-    padding: 14px 16px;
+.tx-card {
     background: var(--bg);
     border-radius: 10px;
-    font-size: 0.95rem;
+    padding: 14px 16px;
 }
 
-.tx-item.pending { border-left: 3px solid var(--warning); }
-.tx-item.success { border-left: 3px solid var(--success); }
-.tx-item.failed { border-left: 3px solid var(--danger); }
+.tx-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
 
-.tx-chain { font-weight: 600; }
-.tx-type { color: var(--text-dim); }
-.tx-amount { font-family: monospace; text-align: right; }
-.tx-status { font-size: 1.2rem; text-align: center; }
+.tx-chain {
+    font-weight: 600;
+}
+
+.tx-status {
+    font-size: 0.85rem;
+    padding: 4px 10px;
+    border-radius: 6px;
+}
+
+.tx-status.pending { background: rgba(255, 165, 2, 0.2); color: var(--warning); }
+.tx-status.success { background: rgba(0, 212, 170, 0.2); color: var(--success); }
+.tx-status.failed { background: rgba(255, 71, 87, 0.2); color: var(--danger); }
+
+.tx-body {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.tx-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9rem;
+}
+
+.tx-row span:first-child {
+    color: var(--text-dim);
+}
 
 /* Footer */
 footer {
@@ -413,13 +461,54 @@ footer {
 }
 
 /* Responsive */
+
+/* Chain Checkbox Styles */
+.chain-checkbox {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    text-align: center;
+}
+
+.chain-checkbox input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    margin: 0;
+    cursor: pointer;
+    accent-color: #00ff88;
+}
+
+.chain-checkbox label {
+    margin-left: 8px;
+    font-size: 14px;
+    color: #999;
+    cursor: pointer;
+    user-select: none;
+}
+
+.chain-card.selected .chain-checkbox label {
+    color: #00ff88;
+}
+
+/* Chain Card Hover Effects */
+.chain-card {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.chain-card:hover {
+    background-color: rgba(255, 255, 255, 0.08);
+    transform: translateY(-2px);
+}
+
+.chain-card.selected {
+    border-color: #00ff88;
+    background-color: rgba(0, 255, 136, 0.1);
+    box-shadow: 0 0 20px rgba(0, 255, 136, 0.2);
+}
+
 @media (max-width: 600px) {
     .chain-grid {
         grid-template-columns: repeat(2, 1fr);
-    }
-    
-    .tx-item {
-        grid-template-columns: 1fr 1fr;
-        gap: 8px;
     }
 }

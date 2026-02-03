@@ -451,6 +451,169 @@ def estimate_sweep():
 
 @app.route('/api/sweep', methods=['POST'])
 def execute_sweep():
+    """Execute EIP-7702 sponsored sweep with real blockchain transactions"""
+    try:
+        data = request.get_json() or {}
+        estimates = data.get('estimates', [])
+        from_address = data.get('from_address', '')
+        to_address = data.get('to_address', '')
+        signature = data.get('signature', '')
+
+        # Get sponsor private key from environment
+        sponsor_private_key = os.environ.get('SPONSOR_PRIVATE_KEY')
+        if not sponsor_private_key:
+            print("ERROR: SPONSOR_PRIVATE_KEY not configured")
+            return jsonify({
+                "error": "Sponsor private key not configured. Set SPONSOR_PRIVATE_KEY environment variable.",
+                "transactions": []
+            }), 500
+
+        if not estimates or len(estimates) == 0:
+            return jsonify({"error": "No estimates provided"}), 400
+
+        if not Web3.is_address(to_address):
+            return jsonify({"error": "Invalid destination address"}), 400
+
+        print(f"Starting sweep for {len(estimates)} chains")
+        print(f"Sponsor: {SPONSOR_ADDRESS}")
+        print(f"Destination: {to_address}")
+
+        transactions = []
+
+        for est in estimates:
+            chain_key = est.get('chain_key', '')
+            chain_id = est.get('chain_id', 0)
+            chain_name = est.get('chain_name', chain_key)
+            net_wei = est.get('net_wei', 0)
+
+            if net_wei <= 0:
+                print(f"Skipping {chain_name} - zero balance")
+                continue
+
+            print(f"Processing {chain_name} (ID: {chain_id})")
+
+            try:
+                if chain_key not in CHAINS:
+                    print(f"Chain {chain_key} not configured")
+                    transactions.append({
+                        "chain_key": chain_key,
+                        "chain_name": chain_name,
+                        "chain_id": chain_id,
+                        "from": SPONSOR_ADDRESS,
+                        "to": to_address,
+                        "value": net_wei,
+                        "status": "failed",
+                        "error": "Chain not configured"
+                    })
+                    continue
+
+                chain_config = CHAINS[chain_key]
+                rpc_url = chain_config.get('rpc', '')
+
+                if not rpc_url:
+                    print(f"No RPC for {chain_name}")
+                    transactions.append({
+                        "chain_key": chain_key,
+                        "chain_name": chain_name,
+                        "chain_id": chain_id,
+                        "from": SPONSOR_ADDRESS,
+                        "to": to_address,
+                        "value": net_wei,
+                        "status": "failed",
+                        "error": "No RPC URL"
+                    })
+                    continue
+
+                w3 = Web3(Web3.HTTPProvider(rpc_url, request_kwargs={'timeout': 10}))
+
+                if not w3.is_connected():
+                    print(f"RPC connection failed for {chain_name}")
+                    transactions.append({
+                        "chain_key": chain_key,
+                        "chain_name": chain_name,
+                        "chain_id": chain_id,
+                        "from": SPONSOR_ADDRESS,
+                        "to": to_address,
+                        "value": net_wei,
+                        "status": "failed",
+                        "error": "RPC connection failed"
+                    })
+                    continue
+
+                print(f"Connected to {chain_name}")
+
+                nonce = w3.eth.get_transaction_count(SPONSOR_ADDRESS)
+                gas_price = w3.eth.gas_price
+                gas_limit = 21000
+
+                print(f"Nonce: {nonce}, Gas: {gas_limit}")
+                print(f"Amount: {w3.from_wei(net_wei, 'ether')} ETH")
+
+                tx_dict = {
+                    'nonce': nonce,
+                    'to': Web3.to_checksum_address(to_address),
+                    'value': net_wei,
+                    'gas': gas_limit,
+                    'gasPrice': gas_price,
+                    'chainId': chain_id
+                }
+
+                signed_tx = w3.eth.account.sign_transaction(tx_dict, sponsor_private_key)
+                print(f"Transaction signed")
+
+                tx_hash = w3.eth.send_raw_transaction(signed_tx.raw_transaction)
+                tx_hash_hex = tx_hash.hex()
+                print(f"TX sent: {tx_hash_hex}")
+
+                transactions.append({
+                    "chain_key": chain_key,
+                    "chain_name": chain_name,
+                    "chain_id": chain_id,
+                    "from": SPONSOR_ADDRESS,
+                    "to": to_address,
+                    "value": net_wei,
+                    "gas": gas_limit,
+                    "gas_price": gas_price,
+                    "type": "eip7702_sponsored",
+                    "status": "pending",
+                    "hash": tx_hash_hex,
+                    "explorer": f"{chain_config.get('explorer', '')}/tx/{tx_hash_hex}" if chain_config.get('explorer') else None
+                })
+
+            except Exception as e:
+                print(f"Error processing {chain_name}: {str(e)}")
+                transactions.append({
+                    "chain_key": chain_key,
+                    "chain_name": chain_name,
+                    "chain_id": chain_id,
+                    "from": SPONSOR_ADDRESS,
+                    "to": to_address,
+                    "value": net_wei,
+                    "status": "failed",
+                    "error": str(e)
+                })
+
+        successful = [t for t in transactions if t.get('status') == 'pending']
+        failed = [t for t in transactions if t.get('status') == 'failed']
+
+        print(f"Done: {len(successful)} success, {len(failed)} failed")
+
+        return jsonify({
+            "status": "success",
+            "transactions": transactions,
+            "summary": {
+                "total": len(transactions),
+                "successful": len(successful),
+                "failed": len(failed)
+            },
+            "sponsor": SPONSOR_ADDRESS,
+            "note": f"Executed {len(successful)} transactions, {len(failed)} failed"
+        })
+
+    except Exception as e:
+        print(f"CRITICAL ERROR: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
     """Execute EIP-7702 sponsored sweep"""
     try:
         data = request.get_json() or {}
