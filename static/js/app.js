@@ -28,6 +28,8 @@
 
     // Initialize
     function init() {
+        console.log('Initializing ZeroDust...');
+        
         if (!window.ethers) {
             console.error('Ethers.js not loaded');
             showError('Ethers.js failed to load. Please refresh the page.');
@@ -37,6 +39,8 @@
         loadChains();
         setupEventListeners();
         checkExistingConnection();
+        
+        console.log('ZeroDust initialized successfully');
     }
 
     // Load chains configuration
@@ -49,6 +53,8 @@
             // Select all chains by default
             Object.keys(chains).forEach(key => selectedChains.add(key));
             updateChainCheckboxes();
+            
+            console.log('Loaded', Object.keys(chains).length, 'chains');
         } catch (error) {
             console.error('Failed to load chains:', error);
         }
@@ -69,16 +75,18 @@
                     <span class="chain-symbol">${chain.symbol}</span>
                 </label>
             `;
+            chainsGrid.appendChild(chainEl);
             
-            chainEl.querySelector('input').addEventListener('change', (e) => {
+            // Attach event listener directly to the checkbox
+            const checkbox = chainEl.querySelector('input');
+            checkbox.addEventListener('change', (e) => {
                 if (e.target.checked) {
                     selectedChains.add(key);
                 } else {
                     selectedChains.delete(key);
                 }
+                console.log('Chain', key, 'selected:', e.target.checked);
             });
-            
-            chainsGrid.appendChild(chainEl);
         });
     }
 
@@ -92,26 +100,60 @@
 
     // Setup event listeners
     function setupEventListeners() {
-        connectWalletBtn.addEventListener('click', connectWallet);
-        disconnectBtn.addEventListener('click', disconnectWallet);
-        selectAllBtn.addEventListener('click', () => {
-            Object.keys(chains).forEach(key => selectedChains.add(key));
-            updateChainCheckboxes();
-        });
-        deselectAllBtn.addEventListener('click', () => {
-            selectedChains.clear();
-            document.querySelectorAll('#chainsGrid input').forEach(cb => cb.checked = false);
-        });
-        scanBtn.addEventListener('click', scanBalances);
-        sweepBtn.addEventListener('click', executeSweep);
+        console.log('Setting up event listeners...');
+        
+        if (connectWalletBtn) {
+            connectWalletBtn.addEventListener('click', connectWallet);
+        }
+        if (disconnectBtn) {
+            disconnectBtn.addEventListener('click', disconnectWallet);
+        }
+        
+        if (selectAllBtn) {
+            selectAllBtn.addEventListener('click', () => {
+                Object.keys(chains).forEach(key => selectedChains.add(key));
+                document.querySelectorAll('#chainsGrid input').forEach(cb => cb.checked = true);
+                console.log('All chains selected');
+            });
+        }
+        
+        if (deselectAllBtn) {
+            deselectAllBtn.addEventListener('click', () => {
+                selectedChains.clear();
+                document.querySelectorAll('#chainsGrid input').forEach(cb => cb.checked = false);
+                console.log('All chains deselected');
+            });
+        }
+        
+        if (scanBtn) {
+            scanBtn.addEventListener('click', scanBalances);
+        }
+        
+        if (sweepBtn) {
+            sweepBtn.addEventListener('click', executeSweep);
+        }
         
         // Manual address input
-        walletAddressInput.addEventListener('input', (e) => {
-            if (isValidAddress(e.target.value)) {
-                currentAccount = e.target.value;
-                updateWalletUI();
-            }
-        });
+        if (walletAddressInput) {
+            walletAddressInput.addEventListener('input', (e) => {
+                if (isValidAddress(e.target.value)) {
+                    currentAccount = e.target.value;
+                    updateWalletUI();
+                }
+            });
+        }
+        
+        // Destination chain change
+        const destChainSelect = document.getElementById('destinationChain');
+        if (destChainSelect) {
+            destChainSelect.addEventListener('change', () => {
+                if (scannedBalances.length > 0) {
+                    estimateCosts();
+                }
+            });
+        }
+        
+        console.log('Event listeners set up');
     }
 
     // Check existing connection
@@ -328,12 +370,6 @@
         showLoading('Preparing EIP-7702 sponsored sweep...');
 
         try {
-            // In a real EIP-7702 implementation, you would:
-            // 1. Sign a delegation message allowing the sponsor to act on your behalf
-            // 2. Send the signature to the backend
-            // 3. The sponsor executes the transactions paying for gas
-            
-            // For this simulation, we'll just show the flow
             const response = await fetch('/api/sweep', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -341,7 +377,7 @@
                     from_address: currentAccount,
                     to_address: currentAccount,
                     estimates: currentEstimates,
-                    signature: '0x'  // Placeholder for EIP-7702 signature
+                    signature: '0x'
                 })
             });
 
@@ -379,7 +415,7 @@
                 <div class="tx-body">
                     <div class="tx-row">
                         <span>Amount:</span>
-                        <span>${parseFloat(tx.value) / 1e18.toFixed(6)} ETH</span>
+                        <span>${(parseFloat(tx.value) / 1e18).toFixed(6)} ETH</span>
                     </div>
                     <div class="tx-row">
                         <span>Type:</span>
@@ -420,13 +456,6 @@
     function showInfo(message) {
         alert('Info: ' + message);
     }
-
-    // Handle destination chain change
-    document.getElementById('destinationChain').addEventListener('change', () => {
-        if (scannedBalances.length > 0) {
-            estimateCosts();
-        }
-    });
 
     // Handle balance checkbox changes
     document.addEventListener('change', (e) => {
