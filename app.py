@@ -15,12 +15,12 @@ FEE_PERCENTAGE = 0.05
 FEE_WALLET = "0xFc20B3A46aD9DAD7d4656bB52C1B13CA042cd2f1"
 RPC_TIMEOUT = 5
 
-# LayerZero v2 / Stargate Configuration
-# Stargate is a LayerZero-based bridge for native tokens
+# STARGATE ROUTER ADDRESSES (OFT implementation on LayerZero)
+# Stargate is the standard for native token bridging with LayerZero
 STARGATE_ROUTER = {
     1: "0x8731d54E9D02c286767d56ac03e8037C07e01e98",      # Ethereum
     56: "0x29578d5f5c34ce65da6317c4683a9de0b3d73184",      # BSC
-    137: "0x8731d54E9D02c286767d56ac03e8037C07e01e98",    # Polygon (using shared router)
+    137: "0x8731d54E9D02c286767d56ac03e8037C07e01e98",    # Polygon
     42161: "0x8731d54E9D02c286767d56ac03e8037C07e01e98",  # Arbitrum
     10: "0x8731d54E9D02c286767d56ac03e8037C07e01e98",      # Optimism
     43114: "0x8731d54E9D02c286767d56ac03e8037C07e01e98",   # Avalanche
@@ -35,27 +35,62 @@ STARGATE_ROUTER = {
     1313161554: "0x8731d54E9D02c286767d56ac03e8037C07e01e98" # Aurora
 }
 
-# LayerZero v2 Endpoint Addresses
-LZ_ENDPOINT = {
-    1: "0x1a44076050125825900e736c501f859c50fE728c",         # Ethereum
-    56: "0x3a1d4102b24363b32f8853c4d1094074a3c161f2",       # BSC
-    137: "0x3c2269811836af69497E5F486A85D7316753cf62",      # Polygon
-    42161: "0x1a44076050125825900e736c501f859c50fE728c",    # Arbitrum
-    10: "0x1a44076050125825900e736c501f859c50fE728c",       # Optimism
-    43114: "0x1a44076050125825900e736c501f859c50fE728c",     # Avalanche
-    250: "0x1a44076050125825900e736c501f859c50fE728c",       # Fantom
-    8453: "0x1a44076050125825900e736c501f859c50fE728c",      # Base
-    59144: "0x1a44076050125825900e736c501f859c50fE728c",     # Linea
-    534352: "0x1a44076050125825900e736c501f859c50fE728c",    # Scroll
-    324: "0x1a44076050125825900e736c501f859c50fE728c",       # zkSync
-    1284: "0x1a44076050125825900e736c501f859c50fE728c",      # Moonbeam
-    42220: "0x1a44076050125825900e736c501f859c50fE728c",     # Celo
-    100: "0x1a44076050125825900e736c501f859c50fE728c",       # Gnosis
-    1313161554: "0x1a44076050125825900e736c501f859c50fE728c"  # Aurora
+# LayerZero Chain IDs (LZ chain IDs, different from native chain IDs)
+LZ_CHAIN_IDS = {
+    1: 101,          # Ethereum
+    56: 102,         # BSC
+    137: 109,        # Polygon
+    42161: 110,      # Arbitrum
+    10: 111,         # Optimism
+    43114: 106,      # Avalanche
+    250: 107,        # Fantom
+    8453: 114,       # Base
+    59144: 184,      # Linea
+    534352: 170,     # Scroll
+    324: 163,        # zkSync
+    1284: 126,       # Moonbeam
+    42220: 125,      # Celo
+    100: 145,        # Gnosis
+    1313161554: 148  # Aurora
 }
 
-# Native token addresses
-NATIVE_TOKEN = "0x0000000000000000000000000000000000000000"
+# STARGATE ROUTER ABI (complete)
+STARGATE_ROUTER_ABI = [
+    {
+        "inputs": [
+            {"internalType": "uint16", "name": "_dstChainId", "type": "uint16"},
+            {"internalType": "uint256", "name": "_srcPoolId", "type": "uint256"},
+            {"internalType": "uint256", "name": "_dstPoolId", "type": "uint256"},
+            {"internalType": "address payable", "name": "_refundAddress", "type": "address"},
+            {"internalType": "address payable", "name": "_amountIn", "type": "address"},
+            {"internalType": "uint256", "name": "_minAmountLD", "type": "uint256"},
+            {"internalType": "uint256", "name": "_dstGasForCall", "type": "uint256"},
+            {"internalType": "uint256", "name": "_lzTxParams", "type": "uint256"},
+            {"internalType": "bytes", "name": "_to", "type": "bytes"},
+            {"internalType": "bytes", "name": "_payload", "type": "bytes"}
+        ],
+        "name": "swap",
+        "outputs": [],
+        "stateMutability": "payable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {"internalType": "uint16", "name": "_dstChainId", "type": "uint16"},
+            {"internalType": "uint256", "name": "_srcPoolId", "type": "uint256"},
+            {"internalType": "uint256", "name": "_dstPoolId", "type": "uint256"},
+            {"internalType": "uint256", "name": "_amountLD", "type": "uint256"},
+            {"internalType": "uint256", "name": "_minAmountLD", "type": "uint256"}
+        ],
+        "name": "quoteLayerZeroFee",
+        "outputs": [
+            {"internalType": "uint256", "name": "", "type": "uint256"},
+            {"internalType": "uint256", "name": "", "type": "uint256"}
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    }
+]
 
 # 15 Supported EVM Chains
 CHAINS = {
@@ -65,7 +100,8 @@ CHAINS = {
         "chain_id": 1,
         "symbol": "ETH",
         "color": "#627EEA",
-        "lifi_id": 1
+        "lifi_id": 1,
+        "stargate_pool_id": 13  # ETH pool
     },
     "polygon": {
         "name": "Polygon",
@@ -73,7 +109,8 @@ CHAINS = {
         "chain_id": 137,
         "symbol": "MATIC",
         "color": "#8247E5",
-        "lifi_id": 137
+        "lifi_id": 137,
+        "stargate_pool_id": 113  # WMATIC pool
     },
     "bsc": {
         "name": "BNB Chain",
@@ -81,7 +118,8 @@ CHAINS = {
         "chain_id": 56,
         "symbol": "BNB",
         "color": "#F3BA2F",
-        "lifi_id": 56
+        "lifi_id": 56,
+        "stargate_pool_id": 2  # BNB pool
     },
     "arbitrum": {
         "name": "Arbitrum",
@@ -89,7 +127,8 @@ CHAINS = {
         "chain_id": 42161,
         "symbol": "ETH",
         "color": "#28A0F0",
-        "lifi_id": 42161
+        "lifi_id": 42161,
+        "stargate_pool_id": 13  # ETH pool
     },
     "optimism": {
         "name": "Optimism",
@@ -97,7 +136,8 @@ CHAINS = {
         "chain_id": 10,
         "symbol": "ETH",
         "color": "#FF0420",
-        "lifi_id": 10
+        "lifi_id": 10,
+        "stargate_pool_id": 13  # ETH pool
     },
     "avalanche": {
         "name": "Avalanche",
@@ -105,7 +145,8 @@ CHAINS = {
         "chain_id": 43114,
         "symbol": "AVAX",
         "color": "#E84142",
-        "lifi_id": 43114
+        "lifi_id": 43114,
+        "stargate_pool_id": 3  # WAVAX pool
     },
     "fantom": {
         "name": "Fantom",
@@ -113,7 +154,8 @@ CHAINS = {
         "chain_id": 250,
         "symbol": "FTM",
         "color": "#1969FF",
-        "lifi_id": 250
+        "lifi_id": 250,
+        "stargate_pool_id": 4  # WFTM pool
     },
     "base": {
         "name": "Base",
@@ -121,7 +163,8 @@ CHAINS = {
         "chain_id": 8453,
         "symbol": "ETH",
         "color": "#0052FF",
-        "lifi_id": 8453
+        "lifi_id": 8453,
+        "stargate_pool_id": 13  # ETH pool
     },
     "linea": {
         "name": "Linea",
@@ -129,7 +172,8 @@ CHAINS = {
         "chain_id": 59144,
         "symbol": "ETH",
         "color": "#61DFFF",
-        "lifi_id": 59144
+        "lifi_id": 59144,
+        "stargate_pool_id": 13  # ETH pool
     },
     "scroll": {
         "name": "Scroll",
@@ -137,7 +181,8 @@ CHAINS = {
         "chain_id": 534352,
         "symbol": "ETH",
         "color": "#FFDBB0",
-        "lifi_id": 534352
+        "lifi_id": 534352,
+        "stargate_pool_id": 13  # ETH pool
     },
     "zksync": {
         "name": "zkSync Era",
@@ -145,7 +190,8 @@ CHAINS = {
         "chain_id": 324,
         "symbol": "ETH",
         "color": "#8C8DFC",
-        "lifi_id": 324
+        "lifi_id": 324,
+        "stargate_pool_id": 13  # ETH pool
     },
     "moonbeam": {
         "name": "Moonbeam",
@@ -153,7 +199,8 @@ CHAINS = {
         "chain_id": 1284,
         "symbol": "GLMR",
         "color": "#53CBC8",
-        "lifi_id": 1284
+        "lifi_id": 1284,
+        "stargate_pool_id": 5  # WGLMR pool
     },
     "celo": {
         "name": "Celo",
@@ -161,7 +208,8 @@ CHAINS = {
         "chain_id": 42220,
         "symbol": "CELO",
         "color": "#FCFF52",
-        "lifi_id": 42220
+        "lifi_id": 42220,
+        "stargate_pool_id": 6  # WCELO pool
     },
     "gnosis": {
         "name": "Gnosis",
@@ -169,7 +217,8 @@ CHAINS = {
         "chain_id": 100,
         "symbol": "xDAI",
         "color": "#04795B",
-        "lifi_id": 100
+        "lifi_id": 100,
+        "stargate_pool_id": 8  # WXDAI pool
     },
     "aurora": {
         "name": "Aurora",
@@ -177,45 +226,11 @@ CHAINS = {
         "chain_id": 1313161554,
         "symbol": "ETH",
         "color": "#70D44B",
-        "lifi_id": 1313161554
+        "lifi_id": 1313161554,
+        "stargate_pool_id": 13  # ETH pool
     }
 }
 
-
-# LayerZero v2 Endpoint ABI
-LZ_ENDPOINT_ABI = [
-    {
-        "inputs": [
-            {"internalType": "uint16", "name": "_dstEid", "type": "uint16"},
-            {"internalType": "bytes", "name": "_message", "type": "bytes"},
-            {"internalType": "bytes payable", "name": "_options", "type": "bytes"},
-            {"internalType": "bool", "name": "_payInLzToken", "type": "bool"},
-            {"internalType": "bytes", "name": "_ulnNlzFee", "type": "bytes"}
-        ],
-        "name": "send",
-        "outputs": [{"internalType": "uint256", "name": "msgId", "type": "uint256"}],
-        "stateMutability": "payable",
-        "type": "function"
-    }
-]
-
-# ERC20 ABI for checking balances
-ERC20_ABI = [
-    {
-        "constant": True,
-        "inputs": [{"name": "_owner", "type": "address"}],
-        "name": "balanceOf",
-        "outputs": [{"name": "balance", "type": "uint256"}],
-        "type": "function"
-    },
-    {
-        "constant": True,
-        "inputs": [],
-        "name": "decimals",
-        "outputs": [{"name": "", "type": "uint8"}],
-        "type": "function"
-    }
-]
 
 def get_balance_for_chain(key, chain, address):
     """Get balance for a single chain"""
@@ -246,23 +261,30 @@ def get_balance_for_chain(key, chain, address):
     return result
 
 
-def prepare_layerzero_bridge(from_chain_id, to_chain_id, from_address, to_address, amount_wei):
-    """Prepare LayerZero v2 bridge transaction"""
+def prepare_stargate_bridge(from_chain_id, to_chain_id, from_address, to_address, amount_wei):
+    """Prepare Stargate bridge transaction using LayerZero protocol"""
     try:
         # Get source chain config
         from_chain = None
+        to_chain = None
         for chain in CHAINS.values():
             if chain['chain_id'] == from_chain_id:
                 from_chain = chain
-                break
+            if chain['chain_id'] == to_chain_id:
+                to_chain = chain
         
-        if not from_chain:
-            return {"error": "Source chain not found"}
+        if not from_chain or not to_chain:
+            return {"error": "Chain config not found"}
         
-        # Get LayerZero endpoint
-        lz_endpoint_addr = LZ_ENDPOINT.get(from_chain_id)
-        if not lz_endpoint_addr:
-            return {"error": "LayerZero endpoint not configured for this chain"}
+        # Get Stargate router
+        router_addr = STARGATE_ROUTER.get(from_chain_id)
+        if not router_addr:
+            return {"error": "Stargate router not configured for this chain"}
+        
+        # Get LayerZero chain IDs
+        dst_lz_chain_id = LZ_CHAIN_IDS.get(to_chain_id)
+        if not dst_lz_chain_id:
+            return {"error": "Destination LayerZero chain ID not configured"}
         
         # Connect to blockchain
         w3 = Web3(Web3.HTTPProvider(
@@ -273,76 +295,78 @@ def prepare_layerzero_bridge(from_chain_id, to_chain_id, from_address, to_addres
         if not w3.is_connected():
             return {"error": "Failed to connect to blockchain"}
         
-        # Get endpoint contract
-        endpoint = w3.eth.contract(
-            address=Web3.to_checksum_address(lz_endpoint_addr),
-            abi=LZ_ENDPOINT_ABI
+        # Get router contract
+        router = w3.eth.contract(
+            address=Web3.to_checksum_address(router_addr),
+            abi=STARGATE_ROUTER_ABI
         )
         
-        # Get destination EID (Endpoint ID)
-        # For LayerZero v2, EIDs are standardized
-        # EID for Ethereum = 30101, Polygon = 30109, etc.
-        eid_map = {
-            1: 30101,          # Ethereum
-            56: 30102,         # BSC
-            137: 30109,        # Polygon
-            42161: 30110,      # Arbitrum
-            10: 30111,         # Optimism
-            43114: 30106,      # Avalanche
-            250: 30107,         # Fantom
-            8453: 30114,       # Base
-            59144: 30163,      # Linea
-            534352: 30168,     # Scroll
-            324: 30117,        # zkSync
-            1284: 30112,       # Moonbeam
-            42220: 30113,      # Celo
-            100: 30108,        # Gnosis
-            1313161554: 30118  # Aurora
-        }
+        # Stargate Pool IDs
+        src_pool_id = from_chain['stargate_pool_id']
+        dst_pool_id = to_chain['stargate_pool_id']
         
-        dst_eid = eid_map.get(to_chain_id)
-        if not dst_eid:
-            return {"error": "Destination EID not configured"}
+        # Build Stargate swap() transaction
+        # Minimum amount to receive (90% to allow for fees)
+        min_amount_ld = int(amount_wei * 0.9)
         
-        # Build message for LayerZero
-        # Format: [to_address (32 bytes), amount (32 bytes), fee (32 bytes)]
-        message = (
-            Web3.to_checksum_address(to_address).rjust(64, '0') +
-            hex(amount_wei)[2:].rjust(64, '0') +
-            hex(int(amount_wei * FEE_PERCENTAGE))[2:].rjust(64, '0')
-        )
+        # Destination gas for receiving tokens (0.01 ETH worth in wei)
+        dst_gas_for_call = 0  # No smart contract call
         
-        # Options for LayerZero v2
-        # Default options with gas settings
-        options = "0003010011010000000000000000000000000000ea60"
+        # LayerZero transaction params (300000 gas, airdrop enabled)
+        lz_tx_params = 3000000000  # 300k gas with airdrop enabled
+        
+        # Destination address as bytes
+        to_bytes = Web3.to_checksum_address(to_address).rjust(64, '0')
+        
+        # Payload (empty for native token transfers)
+        payload = b''
         
         # Estimate gas
         try:
-            gas_estimate = endpoint.functions.send(
-                dst_eid,
-                bytes.fromhex(message),
-                bytes.fromhex(options),
-                False,
-                b''
+            gas_estimate = router.functions.swap(
+                dst_lz_chain_id,
+                src_pool_id,
+                dst_pool_id,
+                Web3.to_checksum_address(from_address),  # refund address
+                Web3.to_checksum_address(from_address),  # amount in
+                min_amount_ld,
+                dst_gas_for_call,
+                lz_tx_params,
+                bytes.fromhex(to_bytes),
+                payload
             ).estimate_gas({
                 'from': from_address,
                 'value': amount_wei
             })
         except Exception as e:
-            gas_estimate = 500000  # Fallback
+            gas_estimate = 350000  # Fallback
         
-        # Build transaction
-        tx_data = endpoint.encodeABI(
-            fn_name="send",
-            args=[dst_eid, bytes.fromhex(message), bytes.fromhex(options), False, b'']
+        # Build transaction data
+        tx_data = router.encodeABI(
+            fn_name="swap",
+            args=[
+                dst_lz_chain_id,
+                src_pool_id,
+                dst_pool_id,
+                Web3.to_checksum_address(from_address),  # refund address
+                Web3.to_checksum_address(from_address),  # amount in
+                min_amount_ld,
+                dst_gas_for_call,
+                lz_tx_params,
+                bytes.fromhex(to_bytes),
+                payload
+            ]
         )
         
         return {
-            "to": lz_endpoint_addr,
+            "to": router_addr,
             "value": str(amount_wei),
             "data": tx_data.hex(),
             "gas_limit": gas_estimate,
-            "dst_eid": dst_eid
+            "dst_lz_chain_id": dst_lz_chain_id,
+            "src_pool_id": src_pool_id,
+            "dst_pool_id": dst_pool_id,
+            "provider": "Stargate (LayerZero)"
         }
         
     except Exception as e:
@@ -412,7 +436,7 @@ def get_balances():
 
 @app.route('/api/prepare-bridge', methods=['POST'])
 def prepare_bridge():
-    """Prepare LayerZero v2 bridge transactions"""
+    """Prepare Stargate bridge transactions using LayerZero"""
     try:
         data = request.get_json() or {}
         balances = data.get('balances', [])
@@ -449,8 +473,8 @@ def prepare_bridge():
             if chain_key == dest_chain_key:
                 continue
             
-            # Skip low balances (< 0.002 for gas)
-            if balance_wei < 2000000000000000:
+            # Skip low balances (< 0.003 for gas)
+            if balance_wei < 3000000000000000:
                 continue
             
             chain = CHAINS.get(chain_key)
@@ -459,8 +483,8 @@ def prepare_bridge():
             
             source_chain_id = chain['chain_id']
             
-            # Reserve gas (0.002)
-            gas_reserve = 2000000000000000
+            # Reserve gas (0.003)
+            gas_reserve = 3000000000000000
             usable = balance_wei - gas_reserve
             
             if usable <= 0:
@@ -470,6 +494,10 @@ def prepare_bridge():
             fee_amount = int(usable * FEE_PERCENTAGE)
             bridge_amount = usable - fee_amount
             
+            # Minimum bridge amount (0.01 token to avoid dust)
+            if bridge_amount < 10000000000000000:
+                continue
+            
             # 1. Fee transaction (on source chain)
             transactions.append({
                 "type": "fee",
@@ -478,12 +506,11 @@ def prepare_bridge():
                 "chain_id": chain['chain_id'],
                 "to": fee_wallet,
                 "value": str(fee_amount),
-                "value_eth": fee_amount / 1e18,
-                "data": "0x"
+                "value_eth": fee_amount / 1e18
             })
             
-            # 2. LayerZero bridge transaction
-            bridge_tx = prepare_layerzero_bridge(
+            # 2. Stargate bridge transaction using LayerZero
+            bridge_tx = prepare_stargate_bridge(
                 source_chain_id,
                 dest_chain_id,
                 from_address,
@@ -503,28 +530,19 @@ def prepare_bridge():
                     "value": bridge_tx['value'],
                     "value_eth": bridge_amount / 1e18,
                     "data": bridge_tx['data'],
-                    "gas_limit": bridge_tx['gas_limit']
+                    "gas_limit": bridge_tx['gas_limit'],
+                    "provider": "Stargate (LayerZero)",
+                    "dst_lz_chain_id": bridge_tx['dst_lz_chain_id'],
+                    "src_pool_id": bridge_tx['src_pool_id'],
+                    "dst_pool_id": bridge_tx['dst_pool_id']
                 })
                 
                 bridge_quotes.append({
                     "from": chain['name'],
                     "to": dest_chain['name'],
                     "amount_in": bridge_amount / 1e18,
-                    "provider": "LayerZero v2",
-                    "dst_eid": bridge_tx['dst_eid']
-                })
-            else:
-                # Fallback: direct transfer if LayerZero not available
-                transactions.append({
-                    "type": "transfer",
-                    "chain_key": chain_key,
-                    "chain_name": chain['name'],
-                    "chain_id": chain['chain_id'],
-                    "note": "LayerZero not available - direct transfer",
-                    "to": to_address,
-                    "value": str(bridge_amount),
-                    "value_eth": bridge_amount / 1e18,
-                    "data": "0x"
+                    "provider": "Stargate (LayerZero)",
+                    "lz_chain_id": bridge_tx['dst_lz_chain_id']
                 })
         
         return jsonify({
@@ -534,7 +552,8 @@ def prepare_bridge():
             "transactions": transactions,
             "bridge_quotes": bridge_quotes,
             "count": len(transactions),
-            "provider": "LayerZero v2"
+            "provider": "Stargate (LayerZero)",
+            "protocol": "LayerZero v2 via Stargate"
         })
         
     except Exception as e:
@@ -546,7 +565,7 @@ def status():
     return jsonify({
         "status": "ok",
         "chains": len(CHAINS),
-        "bridge_provider": "LayerZero v2"
+        "bridge_provider": "Stargate (LayerZero v2)"
     })
 
 
