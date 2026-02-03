@@ -1,635 +1,538 @@
-// =============================================
-// DUST.ZIP - Cross-Chain Dust Aggregator
-// With LI.FI Bridge Integration
-// =============================================
+// Dust.zip EIP-7702 Dust Aggregator - Stargate/LayerZero Implementation
 
 let provider = null;
 let signer = null;
 let userAddress = null;
-let chains = {};
+let ethPrice = 2500;
 let selectedChains = new Set();
-let scannedBalances = [];
-let prices = {};
 
-console.log('[Dust.zip] Script loaded');
+// Chain selection
+const chainKeys = Object.keys(CHAINS);
 
-// Token prices from CoinGecko
-const TOKEN_IDS = {
-    'ethereum': 'ethereum',
-    'polygon': 'matic-network',
-    'bsc': 'binancecoin',
-    'arbitrum': 'ethereum',
-    'optimism': 'ethereum',
-    'avalanche': 'avalanche-2',
-    'fantom': 'fantom',
-    'base': 'ethereum',
-    'linea': 'ethereum',
-    'scroll': 'ethereum',
-    'zksync': 'ethereum',
-    'moonbeam': 'moonbeam',
-    'celo': 'celo',
-    'gnosis': 'gnosis',
-    'aurora': 'ethereum'
-};
+// Initialize on page load
+(function init() {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initApp);
+    } else {
+        initApp();
+    }
+})();
 
-function init() {
-    console.log('[Dust.zip] Initializing...');
-    fetchAllPrices();
-    fetchChains();
+function initApp() {
+    console.log('✅ [Dust.zip] Initializing...');
     
-    const connectBtn = document.getElementById('connectBtn');
-    const selectAllBtn = document.getElementById('selectAllBtn');
-    const deselectAllBtn = document.getElementById('deselectAllBtn');
-    const scanBtn = document.getElementById('scanBtn');
-    const aggregateBtn = document.getElementById('aggregateBtn');
-    
-    if (connectBtn) connectBtn.onclick = connectWallet;
-    if (selectAllBtn) selectAllBtn.onclick = selectAll;
-    if (deselectAllBtn) deselectAllBtn.onclick = deselectAll;
-    if (scanBtn) scanBtn.onclick = scanBalances;
-    if (aggregateBtn) aggregateBtn.onclick = aggregateDust;
-    
-    console.log('[Dust.zip] Ready!');
+    loadEthersJS();
+    populateChains();
+    setupEventListeners();
+    fetchETHPrice();
 }
 
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-} else {
-    init();
-}
-
-// =============================================
-// PRICE FETCHING
-// =============================================
-
-async function fetchAllPrices() {
-    console.log('[Dust.zip] Fetching all token prices...');
-    
-    try {
-        const uniqueIds = [...new Set(Object.values(TOKEN_IDS))];
-        const ids = uniqueIds.join(',');
-        
-        const res = await fetch(
-            `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd`
-        );
-        
-        if (!res.ok) throw new Error('CoinGecko API failed');
-        
-        const data = await res.json();
-        
-        Object.keys(TOKEN_IDS).forEach(key => {
-            const tokenId = TOKEN_IDS[key];
-            const price = data[tokenId]?.usd || 0;
-            prices[key] = price;
-        });
-        
-        console.log('[Dust.zip] Prices loaded:', prices);
-        
-    } catch (err) {
-        console.error('[Dust.zip] Price fetch error:', err);
-        prices = {
-            'ethereum': 2500,
-            'polygon': 0.7,
-            'bsc': 350,
-            'arbitrum': 2500,
-            'optimism': 2500,
-            'avalanche': 35,
-            'fantom': 0.5,
-            'base': 2500,
-            'linea': 2500,
-            'scroll': 2500,
-            'zksync': 2500,
-            'moonbeam': 0.2,
-            'celo': 0.8,
-            'gnosis': 1,
-            'aurora': 2500
+function loadEthersJS() {
+    const script = document.createElement('script');
+    script.src = 'https://unpkg.com/ethers@6.9.0/dist/ethers.umd.min.js';
+    script.onload = () => {
+        console.log('✅ [Dust.zip] Ethers.js loaded');
+        checkExistingConnection();
+    };
+    script.onerror = () => {
+        console.error('❌ [Dust.zip] Failed to load Ethers.js from unpkg');
+        // Try fallback
+        const fallback = document.createElement('script');
+        fallback.src = 'https://cdn.jsdelivr.net/npm/ethers@6.9.0/dist/ethers.umd.min.js';
+        fallback.onload = () => {
+            console.log('✅ [Dust.zip] Ethers.js loaded from jsdelivr');
+            checkExistingConnection();
         };
-    }
+        document.head.appendChild(fallback);
+    };
+    document.head.appendChild(script);
 }
 
-function getChainPrice(chainKey) {
-    return prices[chainKey] || 0;
-}
-
-// =============================================
-// WALLET CONNECTION
-// =============================================
-
-async function connectWallet() {
-    console.log('[Dust.zip] Connecting wallet...');
-    
-    if (typeof window.ethereum === 'undefined') {
-        alert('Please install MetaMask!');
-        return;
-    }
-    
-    try {
-        showStatus('Connecting wallet...', 'info');
-        
-        if (typeof ethers === 'undefined') {
-            throw new Error('Ethers.js not loaded');
-        }
-        
-        provider = new ethers.BrowserProvider(window.ethereum);
-        const accounts = await provider.send('eth_requestAccounts', []);
-        userAddress = accounts[0];
-        signer = await provider.getSigner();
-        
-        const connectText = document.getElementById('connectText');
-        const connectBtn = document.getElementById('connectBtn');
-        const addressInput = document.getElementById('addressInput');
-        const destAddressInput = document.getElementById('destAddressInput');
-        
-        if (connectText) connectText.textContent = shortAddr(userAddress);
-        if (connectBtn) connectBtn.classList.add('connected');
-        if (addressInput) addressInput.value = userAddress;
-        if (destAddressInput && !destAddressInput.value) destAddressInput.value = userAddress;
-        
-        showStatus('Wallet connected!', 'success');
-        console.log('[Dust.zip] Connected:', userAddress);
-        
-    } catch (err) {
-        console.error('[Dust.zip] Connection error:', err);
-        showStatus('Connection failed: ' + err.message, 'error');
-    }
-}
-
-// =============================================
-// CHAIN MANAGEMENT
-// =============================================
-
-async function fetchChains() {
-    try {
-        const res = await fetch('/api/chains');
-        if (!res.ok) throw new Error('Failed to fetch chains');
-        
-        chains = await res.json();
-        console.log('[Dust.zip] Chains loaded:', Object.keys(chains).length);
-        renderChainGrid();
-        renderDestinationSelect();
-        
-    } catch (err) {
-        console.error('[Dust.zip] Chain fetch error:', err);
-    }
-}
-
-function renderChainGrid() {
+function populateChains() {
     const grid = document.getElementById('chainGrid');
     if (!grid) return;
     
     grid.innerHTML = '';
     
-    Object.entries(chains).forEach(([key, chain]) => {
-        selectedChains.add(key);
-        
+    chainKeys.forEach(key => {
+        const chain = CHAINS[key];
         const div = document.createElement('div');
-        div.className = 'chain-item selected';
-        div.dataset.key = key;
+        div.className = 'chain-item';
         div.innerHTML = `
-            <div class="chain-check">✓</div>
-            <div class="chain-dot" style="background:${chain.color}"></div>
-            <span>${chain.name}</span>
+            <label class="chain-label">
+                <input type="checkbox" class="chain-checkbox" value="${key}" data-color="${chain.color}">
+                <div class="chain-name" style="border-left: 3px solid ${chain.color}">${chain.name}</div>
+                <div class="chain-symbol">${chain.symbol}</div>
+            </label>
         `;
-        div.onclick = () => toggleChain(key, div);
         grid.appendChild(div);
-    });
-}
-
-function renderDestinationSelect() {
-    const select = document.getElementById('destChainSelect');
-    if (!select) return;
-    
-    select.innerHTML = '';
-    
-    Object.entries(chains).forEach(([key, chain]) => {
-        const option = document.createElement('option');
-        option.value = key;
-        option.textContent = chain.name;
-        if (key === 'ethereum') option.selected = true;
-        select.appendChild(option);
-    });
-}
-
-function toggleChain(key, el) {
-    if (selectedChains.has(key)) {
-        selectedChains.delete(key);
-        el.classList.remove('selected');
-    } else {
+        
+        // Add to selected set by default
         selectedChains.add(key);
-        el.classList.add('selected');
-    }
-}
-
-function selectAll() {
-    document.querySelectorAll('.chain-item').forEach(el => {
-        const key = el.dataset.key;
-        if (key) {
-            selectedChains.add(key);
-            el.classList.add('selected');
-        }
+    });
+    
+    // Setup checkbox listeners
+    document.querySelectorAll('.chain-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', (e) => {
+            if (e.target.checked) {
+                selectedChains.add(e.target.value);
+            } else {
+                selectedChains.delete(e.target.value);
+            }
+        });
+        checkbox.checked = true;
     });
 }
 
-function deselectAll() {
-    document.querySelectorAll('.chain-item').forEach(el => {
-        const key = el.dataset.key;
-        if (key) {
-            selectedChains.delete(key);
-            el.classList.remove('selected');
-        }
-    });
-}
-
-// =============================================
-// BALANCE SCANNING
-// =============================================
-
-async function scanBalances() {
-    console.log('[Dust.zip] Scanning balances...');
-    
-    const addressInput = document.getElementById('addressInput');
-    const address = addressInput ? addressInput.value.trim() : '';
-    
-    if (!address || address.length !== 42 || !address.startsWith('0x')) {
-        showStatus('Please enter a valid address', 'error');
-        return;
+function setupEventListeners() {
+    const connectBtn = document.getElementById('connectWalletBtn');
+    if (connectBtn) {
+        connectBtn.onclick = connectWallet;
     }
     
-    if (selectedChains.size === 0) {
-        showStatus('Please select at least one chain', 'error');
-        return;
-    }
-    
-    const loading = document.getElementById('loading');
-    const results = document.getElementById('results');
     const scanBtn = document.getElementById('scanBtn');
-    const loadingText = document.getElementById('loadingText');
+    if (scanBtn) {
+        scanBtn.onclick = scanBalances;
+    }
     
-    if (loading) loading.classList.remove('hidden');
-    if (results) results.classList.add('hidden');
-    if (scanBtn) scanBtn.disabled = true;
-    if (loadingText) loadingText.textContent = `Scanning ${selectedChains.size} chains...`;
+    const bridgeBtn = document.getElementById('bridgeBtn');
+    if (bridgeBtn) {
+        bridgeBtn.onclick = executeBridge;
+    }
+    
+    // Manual address input
+    const addressInput = document.getElementById('manualAddress');
+    if (addressInput) {
+        addressInput.addEventListener('input', (e) => {
+            if (e.target.value.length === 42 && e.target.value.startsWith('0x')) {
+                userAddress = e.target.value;
+                updateWalletUI(userAddress);
+            }
+        });
+    }
+    
+    // Select all / deselect all
+    const selectAllBtn = document.getElementById('selectAllBtn');
+    const deselectAllBtn = document.getElementById('deselectAllBtn');
+    
+    if (selectAllBtn) {
+        selectAllBtn.onclick = () => {
+            document.querySelectorAll('.chain-checkbox').forEach(cb => {
+                cb.checked = true;
+                selectedChains.add(cb.value);
+            });
+        };
+    }
+    
+    if (deselectAllBtn) {
+        deselectAllBtn.onclick = () => {
+            document.querySelectorAll('.chain-checkbox').forEach(cb => {
+                cb.checked = false;
+                selectedChains.delete(cb.value);
+            });
+        };
+    }
+}
+
+async function checkExistingConnection() {
+    if (typeof ethers === 'undefined') {
+        setTimeout(checkExistingConnection, 500);
+        return;
+    }
     
     try {
-        await fetchAllPrices();
+        if (window.ethereum) {
+            provider = new ethers.BrowserProvider(window.ethereum);
+            const accounts = await provider.listAccounts();
+            if (accounts.length > 0) {
+                signer = await provider.getSigner();
+                userAddress = await signer.getAddress();
+                updateWalletUI(userAddress);
+                console.log('✅ [Dust.zip] Already connected:', userAddress);
+            }
+        }
+    } catch (error) {
+        console.error('❌ [Dust.zip] Connection check failed:', error);
+    }
+}
+
+async function connectWallet() {
+    console.log('🔌 [Dust.zip] Connecting wallet...');
+    
+    if (typeof ethers === 'undefined') {
+        alert('Ethers.js not loaded yet. Please wait a moment.');
+        return;
+    }
+    
+    try {
+        if (!window.ethereum) {
+            alert('Please install MetaMask or another Web3 wallet!');
+            window.open('https://metamask.io/download/', '_blank');
+            return;
+        }
         
-        const res = await fetch('/api/balances', {
+        provider = new ethers.BrowserProvider(window.ethereum);
+        const accounts = await provider.send('eth_requestAccounts', []);
+        
+        if (accounts.length === 0) {
+            alert('Please connect at least one account');
+            return;
+        }
+        
+        signer = await provider.getSigner();
+        userAddress = await signer.getAddress();
+        
+        updateWalletUI(userAddress);
+        console.log('✅ [Dust.zip] Connected:', userAddress);
+        
+        // Auto-scan after connecting
+        await scanBalances();
+        
+    } catch (error) {
+        console.error('❌ [Dust.zip] Connection failed:', error);
+        alert('Failed to connect wallet: ' + error.message);
+    }
+}
+
+function updateWalletUI(address) {
+    const shortAddr = address.slice(0, 6) + '...' + address.slice(-4);
+    const btn = document.getElementById('connectWalletBtn');
+    if (btn) {
+        btn.textContent = shortAddr;
+        btn.classList.add('connected');
+    }
+    document.getElementById('manualAddress').value = address;
+    document.getElementById('resultAddress').textContent = shortAddr;
+}
+
+async function fetchETHPrice() {
+    try {
+        const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum,binancecoin,matic-network,avalanche-2,fantom,ethereum,moonbeam,celo,xdai,ethereum,ethereum,ethereum,ethereum&vs_currencies=usd');
+        const data = await response.json();
+        ethPrice = data.ethereum?.usd || 2500;
+    } catch (error) {
+        console.warn('⚠️ [Dust.zip] Using fallback ETH price');
+    }
+}
+
+async function scanBalances() {
+    console.log('🔍 [Dust.zip] Scanning balances...');
+    
+    if (!userAddress) {
+        alert('Please connect wallet first!');
+        return;
+    }
+    
+    const btn = document.getElementById('scanBtn');
+    if (btn) btn.disabled = true;
+    
+    try {
+        const response = await fetch('/api/balances', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                address: address,
+                address: userAddress,
                 chains: Array.from(selectedChains)
             })
         });
         
-        if (!res.ok) {
-            const errData = await res.json();
-            throw new Error(errData.error || 'API request failed: ' + res.status);
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Scan failed');
         }
         
-        const data = await res.json();
-        if (data.error) throw new Error(data.error);
+        const data = await response.json();
+        console.log('✅ [Dust.zip] Scan complete:', data);
         
-        scannedBalances = Array.isArray(data.balances) ? data.balances : [];
         displayResults(data);
-        showStatus('Scan complete!', 'success');
         
-    } catch (err) {
-        console.error('[Dust.zip] Scan error:', err);
-        showStatus('Scan failed: ' + err.message, 'error');
+    } catch (error) {
+        console.error('❌ [Dust.zip] Scan failed:', error);
+        alert('Failed to scan balances: ' + error.message);
     } finally {
-        if (loading) loading.classList.add('hidden');
-        if (scanBtn) scanBtn.disabled = false;
+        if (btn) btn.disabled = false;
     }
 }
 
 function displayResults(data) {
-    const total = parseFloat(data.total) || 0;
-    const fee = parseFloat(data.fee) || 0;
-    const net = parseFloat(data.net) || 0;
+    const container = document.getElementById('resultsContainer');
+    if (!container) return;
     
-    let totalUsd = 0;
-    scannedBalances.forEach(b => {
-        const bal = parseFloat(b.balance) || 0;
-        const chainKey = b.key || '';
-        const price = getChainPrice(chainKey);
-        totalUsd += bal * price;
-    });
+    container.classList.remove('hidden');
     
-    const feeUsd = totalUsd * 0.05;
-    const netUsd = totalUsd - feeUsd;
+    // Display total
+    document.getElementById('totalETH').textContent = data.total.toFixed(4);
+    document.getElementById('totalUSD').textContent = '$' + (data.total * ethPrice).toFixed(2);
+    document.getElementById('feeETH').textContent = data.fee.toFixed(4);
+    document.getElementById('feeUSD').textContent = '$' + (data.fee * ethPrice).toFixed(2);
+    document.getElementById('netETH').textContent = data.net.toFixed(4);
+    document.getElementById('netUSD').textContent = '$' + (data.net * ethPrice).toFixed(2);
     
-    const totalValue = document.getElementById('totalValue');
-    const totalUsdEl = document.getElementById('totalUsd');
-    const feeValue = document.getElementById('feeValue');
-    const netValue = document.getElementById('netValue');
-    
-    if (totalValue) totalValue.textContent = total.toFixed(6) + ' tokens';
-    if (totalUsdEl) totalUsdEl.textContent = '$' + totalUsd.toFixed(2);
-    if (feeValue) feeValue.textContent = (total * 0.05).toFixed(6) + ' tokens ($' + feeUsd.toFixed(2) + ')';
-    if (netValue) netValue.textContent = net.toFixed(6) + ' tokens ($' + netUsd.toFixed(2) + ')';
-    
-    const list = document.getElementById('balanceList');
-    if (list) {
-        list.innerHTML = '';
-        
-        const withBalance = scannedBalances.filter(b => (parseFloat(b.balance) || 0) > 0);
+    // Display balances
+    const balancesDiv = document.getElementById('balancesList');
+    if (balancesDiv) {
+        const withBalance = data.balances.filter(b => b.balance > 0.001);
         
         if (withBalance.length === 0) {
-            list.innerHTML = '<div class="no-dust">No dust found on selected chains</div>';
-        } else {
-            withBalance.forEach(b => {
-                const bal = parseFloat(b.balance) || 0;
-                const chainKey = b.key || '';
-                const price = getChainPrice(chainKey);
-                const usdVal = bal * price;
-                
-                const div = document.createElement('div');
-                div.className = 'balance-item';
-                div.innerHTML = `
-                    <div class="bal-chain">
-                        <div class="chain-dot" style="background:${b.color || '#666'}"></div>
-                        <span>${b.name || 'Unknown'}</span>
-                    </div>
-                    <div class="bal-values">
-                        <div class="bal-eth">${bal.toFixed(6)} ${b.symbol || 'ETH'}</div>
-                        <div class="bal-usd">$${usdVal.toFixed(2)}</div>
-                    </div>
-                `;
-                list.appendChild(div);
-            });
-        }
-    }
-    
-    const destAddressInput = document.getElementById('destAddressInput');
-    if (destAddressInput && userAddress && !destAddressInput.value) {
-        destAddressInput.value = userAddress;
-    }
-    
-    const results = document.getElementById('results');
-    if (results) results.classList.remove('hidden');
-}
-
-// =============================================
-// CROSS-CHAIN BRIDGE AGGREGATION
-// =============================================
-
-async function aggregateDust() {
-    console.log('[Dust.zip] Starting cross-chain aggregation...');
-    
-    const destAddressInput = document.getElementById('destAddressInput');
-    const destChainSelect = document.getElementById('destChainSelect');
-    
-    const destAddress = destAddressInput ? destAddressInput.value.trim() : '';
-    const destChain = destChainSelect ? destChainSelect.value : 'ethereum';
-    
-    if (!destAddress || destAddress.length !== 42 || !destAddress.startsWith('0x')) {
-        showStatus('Please enter a valid destination address', 'error');
-        return;
-    }
-    
-    if (!signer) {
-        showStatus('Please connect your wallet first', 'error');
-        return;
-    }
-    
-    const withBalance = scannedBalances.filter(b => (parseFloat(b.balance) || 0) > 0.002);
-    
-    if (withBalance.length === 0) {
-        showStatus('No dust to aggregate (min 0.002)', 'error');
-        return;
-    }
-    
-    const aggregateBtn = document.getElementById('aggregateBtn');
-    if (aggregateBtn) aggregateBtn.disabled = true;
-    
-    showStatus('Preparing bridge transactions...', 'info');
-    
-    try {
-        console.log('[Dust.zip] Requesting bridge transactions from backend...');
-        
-        const res = await fetch('/api/prepare-bridge', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                balances: withBalance,
-                from_address: userAddress,
-                to_address: destAddress,
-                destination_chain: destChain
-            })
-        });
-        
-        if (!res.ok) {
-            const errData = await res.json();
-            throw new Error(errData.error || 'API request failed: ' + res.status);
-        }
-        
-        const data = await res.json();
-        if (data.error) throw new Error(data.error);
-        
-        console.log('[Dust.zip] Backend response:', data);
-        
-        const transactions = data.transactions || [];
-        
-        if (transactions.length === 0) {
-            showStatus('No transactions to send', 'error');
+            balancesDiv.innerHTML = '<p class="no-balance">No significant balances found</p>';
             return;
         }
         
-        console.log(`[Dust.zip] ${transactions.length} transactions to execute`);
-        
-        // Show bridge quotes
-        if (data.bridge_quotes && data.bridge_quotes.length > 0) {
-            console.log('[Dust.zip] Bridge quotes:', data.bridge_quotes);
-        }
-        
-        // Show progress UI
-        const results = document.getElementById('results');
-        const txProgress = document.getElementById('txProgress');
-        const txList = document.getElementById('txList');
-        
-        if (results) results.classList.add('hidden');
-        if (txProgress) txProgress.classList.remove('hidden');
-        if (txList) txList.innerHTML = '';
-        
-        // Group by chain
-        const byChain = {};
-        transactions.forEach(tx => {
-            const key = tx.chain_key;
-            if (!byChain[key]) byChain[key] = [];
-            byChain[key].push(tx);
+        balancesDiv.innerHTML = withBalance.map(b => `
+            <div class="balance-item" style="border-left: 4px solid ${b.color}">
+                <div class="balance-chain">${b.name}</div>
+                <div class="balance-amount">
+                    <span class="eth-value">${b.balance.toFixed(4)} ${b.symbol}</span>
+                    <span class="usd-value">≈ $${(b.balance * ethPrice).toFixed(2)}</span>
+                </div>
+            </div>
+        `).join('');
+    }
+    
+    // Store balances for bridge
+    window.currentBalances = data.balances.filter(b => b.balance > 0.001);
+    window.scanData = data;
+}
+
+async function executeBridge() {
+    console.log('🌉 [Dust.zip] Preparing bridge...');
+    
+    if (!userAddress) {
+        alert('Please connect wallet first!');
+        return;
+    }
+    
+    if (!window.currentBalances || window.currentBalances.length === 0) {
+        alert('No balances to bridge. Please scan first!');
+        return;
+    }
+    
+    const destChainKey = document.getElementById('destChain')?.value || 'ethereum';
+    console.log('🌉 [Dust.zip] Destination chain:', destChainKey);
+    
+    try {
+        // Prepare bridge transactions
+        const response = await fetch('/api/prepare-bridge', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                from_address: userAddress,
+                to_address: userAddress,
+                destination_chain: destChainKey,
+                balances: window.currentBalances
+            })
         });
         
-        let successCount = 0;
-        const totalCount = transactions.length;
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Bridge preparation failed');
+        }
         
-        console.log('[Dust.zip] Transactions grouped by chain:', Object.keys(byChain));
+        const data = await response.json();
+        console.log('✅ [Dust.zip] Bridge prepared:', data);
         
-        // Execute transactions chain by chain
-        for (const [chainKey, txs] of Object.entries(byChain)) {
-            const chainData = chains[chainKey];
-            if (!chainData) {
-                console.error('[Dust.zip] Chain not found:', chainKey);
-                continue;
-            }
+        if (data.transactions.length === 0) {
+            alert('No transactions to execute. Balances too low.');
+            return;
+        }
+        
+        console.log(`🌉 [Dust.zip] Executing ${data.transactions.length} transactions...`);
+        
+        // Execute transactions sequentially
+        for (let i = 0; i < data.transactions.length; i++) {
+            const tx = data.transactions[i];
+            console.log(`🌉 [Dust.zip] Processing tx ${i+1}/${data.transactions.length}:`, tx);
             
-            console.log(`[Dust.zip] Processing chain: ${chainData.name}`);
-            
-            // Switch network
-            showStatus(`Switching to ${chainData.name}...`, 'info');
-            const switched = await switchNetwork(chainData.chain_id, chainData.name);
-            if (!switched) {
-                console.error('[Dust.zip] Failed to switch network');
-                continue;
-            }
-            
-            console.log('[Dust.zip] Network switched successfully');
-            
-            // Refresh provider/signer
-            provider = new ethers.BrowserProvider(window.ethereum);
-            signer = await provider.getSigner();
-            
-            // Execute each tx
-            for (const tx of txs) {
-                console.log('[Dust.zip] Executing transaction:', tx);
-                
-                const txDiv = document.createElement('div');
-                txDiv.className = 'tx-item pending';
-                
-                const typeIcon = tx.type === 'fee' ? '💸' : (tx.type === 'bridge' ? '🌉' : '📤');
-                const typeLabel = tx.type === 'fee' ? 'Fee' : (tx.type === 'bridge' ? `Bridge → ${tx.dest_chain}` : 'Transfer');
-                
-                txDiv.innerHTML = `
-                    <span class="tx-chain">${tx.chain_name}</span>
-                    <span class="tx-type">${typeIcon} ${typeLabel}</span>
-                    <span class="tx-amount">${parseFloat(tx.value_eth).toFixed(6)}</span>
-                    <span class="tx-status">⏳</span>
-                `;
-                if (txList) txList.appendChild(txDiv);
-                
-                try {
-                    console.log('[Dust.zip] Building transaction...');
-                    console.log('[Dust.zip] To:', tx.to);
-                    console.log('[Dust.zip] Value:', tx.value);
-                    console.log('[Dust.zip] Data length:', tx.data ? tx.data.length : 0);
-                    
-                    const txRequest = {
-                        to: tx.to,
-                        value: ethers.toBigInt(tx.value),
-                        data: tx.data || '0x'
-                    };
-                    
-                    // Add gas limit for bridge transactions
-                    if (tx.gas_limit) {
-                        txRequest.gasLimit = ethers.toBigInt(tx.gas_limit);
-                        console.log('[Dust.zip] Gas limit:', tx.gas_limit);
-                    }
-                    
-                    console.log('[Dust.zip] Sending transaction...');
-                    const txResponse = await signer.sendTransaction(txRequest);
-                    
-                    console.log('[Dust.zip] Transaction sent:', txResponse.hash);
-                    
-                    const statusEl = txDiv.querySelector('.tx-status');
-                    if (statusEl) statusEl.textContent = '⏳ Confirming...';
-                    
-                    showStatus(`Confirming transaction...`, 'info');
-                    
-                    await txResponse.wait();
-                    
-                    console.log('[Dust.zip] Transaction confirmed:', txResponse.hash);
-                    
-                    txDiv.className = 'tx-item success';
-                    if (statusEl) statusEl.textContent = '✅';
-                    successCount++;
-                    
-                } catch (txErr) {
-                    console.error('[Dust.zip] TX failed:', txErr);
-                    
-                    // Show detailed error
-                    let errorMsg = txErr.message || 'Unknown error';
-                    if (txErr.code === 4001) {
-                        errorMsg = 'User rejected';
-                    } else if (txErr.code === -32603) {
-                        errorMsg = 'Execution failed';
-                    }
-                    
-                    console.error('[Dust.zip] Error details:', {
-                        message: txErr.message,
-                        code: txErr.code,
-                        data: txErr.data
-                    });
-                    
-                    txDiv.className = 'tx-item failed';
-                    const statusEl = txDiv.querySelector('.tx-status');
-                    if (statusEl) statusEl.textContent = '❌';
-                    txDiv.title = errorMsg;
-                }
+            try {
+                await executeTransaction(tx, i, data.transactions.length);
+            } catch (error) {
+                console.error(`❌ [Dust.zip] Transaction ${i+1} failed:`, error);
+                alert(`Transaction ${i+1} failed: ${error.message}`);
+                return;
             }
         }
         
-        // Final status
-        if (successCount === totalCount) {
-            showStatus(`✅ Complete! ${successCount}/${totalCount} transactions`, 'success');
-        } else if (successCount > 0) {
-            showStatus(`⚠️ Partial: ${successCount}/${totalCount} transactions`, 'info');
-        } else {
-            showStatus('❌ No transactions completed', 'error');
-        }
+        console.log('✅ [Dust.zip] All transactions complete!');
+        alert(`Bridge complete! ${data.transactions.length} transactions executed.\nTokens will arrive in 5-15 minutes.`);
         
-    } catch (err) {
-        console.error('[Dust.zip] Aggregation error:', err);
-        console.error('[Dust.zip] Error stack:', err.stack);
-        showStatus('Aggregation failed: ' + err.message, 'error');
-    } finally {
-        if (aggregateBtn) aggregateBtn.disabled = false;
+    } catch (error) {
+        console.error('❌ [Dust.zip] Bridge failed:', error);
+        alert('Bridge failed: ' + error.message);
     }
 }
 
-// =============================================
-// NETWORK SWITCHING
-// =============================================
+async function executeTransaction(tx, index, total) {
+    console.log(`🌉 [Dust.zip] Executing tx ${index + 1}/${total}: ${tx.type} on ${tx.chain_name}`);
+    
+    // Switch network
+    await switchNetwork(tx.chain_id, tx.chain_name);
+    
+    // Create transaction
+    const txRequest = {
+        to: tx.to,
+        value: tx.value,
+        data: tx.data || '0x',
+        gasLimit: tx.gas_limit || '300000'
+    };
+    
+    console.log(`🌉 [Dust.zip] Sending transaction...`);
+    const transaction = await signer.sendTransaction(txRequest);
+    console.log(`✅ [Dust.zip] Transaction sent: ${transaction.hash}`);
+    
+    // Wait for confirmation
+    console.log(`⏳ [Dust.zip] Waiting for confirmation...`);
+    const receipt = await transaction.wait();
+    console.log(`✅ [Dust.zip] Transaction confirmed in block ${receipt.blockNumber}`);
+    
+    return receipt;
+}
 
 async function switchNetwork(chainId, chainName) {
     const hexChainId = '0x' + chainId.toString(16);
-    console.log(`[Dust.zip] Switching to chain ${chainId} (${hexChainId})`);
     
     try {
         await window.ethereum.request({
             method: 'wallet_switchEthereumChain',
             params: [{ chainId: hexChainId }]
         });
-        console.log('[Dust.zip] Network switched successfully');
-        return true;
-    } catch (err) {
-        console.error('[Dust.zip] Network switch error:', err);
-        if (err.code === 4902) {
-            showStatus(`Please add ${chainName} to MetaMask`, 'error');
-        } else if (err.code === 4001) {
-            showStatus('Network switch rejected by user', 'error');
+        console.log(`✅ [Dust.zip] Network switched to ${chainName}`);
+    } catch (switchError) {
+        if (switchError.code === 4902) {
+            // Chain not added, add it
+            const chain = Object.values(CHAINS).find(c => c.chain_id === chainId);
+            if (chain) {
+                try {
+                    await window.ethereum.request({
+                        method: 'wallet_addEthereumChain',
+                        params: [{
+                            chainId: hexChainId,
+                            chainName: chain.name,
+                            nativeCurrency: {
+                                name: chain.symbol,
+                                symbol: chain.symbol,
+                                decimals: 18
+                            },
+                            rpcUrls: [chain.rpc],
+                            blockExplorerUrls: [`https://etherscan.io`] // Simplified
+                        }]
+                    });
+                } catch (addError) {
+                    throw new Error(`Failed to add ${chainName}: ${addError.message}`);
+                }
+            }
+        } else {
+            throw new Error(`Failed to switch to ${chainName}: ${switchError.message}`);
         }
-        return false;
     }
 }
 
-// =============================================
-// UTILITIES
-// =============================================
-
-function shortAddr(addr) {
-    if (!addr || addr.length < 10) return addr || '';
-    return addr.slice(0, 6) + '...' + addr.slice(-4);
-}
-
-function showStatus(msg, type) {
-    const el = document.getElementById('status');
-    if (!el) return;
-    
-    el.textContent = msg;
-    el.className = 'status ' + type;
-    el.classList.remove('hidden');
-    
-    if (type === 'success' || type === 'info') {
-        setTimeout(() => el.classList.add('hidden'), 5000);
+// Load chains configuration
+const CHAINS = {
+    "ethereum": {
+        "name": "Ethereum",
+        "rpc": "https://eth.llamarpc.com",
+        "chain_id": 1,
+        "symbol": "ETH",
+        "color": "#627EEA"
+    },
+    "polygon": {
+        "name": "Polygon",
+        "rpc": "https://polygon-rpc.com",
+        "chain_id": 137,
+        "symbol": "MATIC",
+        "color": "#8247E5"
+    },
+    "bsc": {
+        "name": "BNB Chain",
+        "rpc": "https://bsc-dataseed.binance.org",
+        "chain_id": 56,
+        "symbol": "BNB",
+        "color": "#F3BA2F"
+    },
+    "arbitrum": {
+        "name": "Arbitrum",
+        "rpc": "https://arb1.arbitrum.io/rpc",
+        "chain_id": 42161,
+        "symbol": "ETH",
+        "color": "#28A0F0"
+    },
+    "optimism": {
+        "name": "Optimism",
+        "rpc": "https://mainnet.optimism.io",
+        "chain_id": 10,
+        "symbol": "ETH",
+        "color": "#FF0420"
+    },
+    "avalanche": {
+        "name": "Avalanche",
+        "rpc": "https://api.avax.network/ext/bc/C/rpc",
+        "chain_id": 43114,
+        "symbol": "AVAX",
+        "color": "#E84142"
+    },
+    "fantom": {
+        "name": "Fantom",
+        "rpc": "https://rpc.ftm.tools",
+        "chain_id": 250,
+        "symbol": "FTM",
+        "color": "#1969FF"
+    },
+    "base": {
+        "name": "Base",
+        "rpc": "https://mainnet.base.org",
+        "chain_id": 8453,
+        "symbol": "ETH",
+        "color": "#0052FF"
+    },
+    "linea": {
+        "name": "Linea",
+        "rpc": "https://rpc.linea.build",
+        "chain_id": 59144,
+        "symbol": "ETH",
+        "color": "#61DFFF"
+    },
+    "scroll": {
+        "name": "Scroll",
+        "rpc": "https://rpc.scroll.io",
+        "chain_id": 534352,
+        "symbol": "ETH",
+        "color": "#FFDBB0"
+    },
+    "zksync": {
+        "name": "zkSync Era",
+        "rpc": "https://mainnet.era.zksync.io",
+        "chain_id": 324,
+        "symbol": "ETH",
+        "color": "#8C8DFC"
+    },
+    "moonbeam": {
+        "name": "Moonbeam",
+        "rpc": "https://rpc.api.moonbeam.network",
+        "chain_id": 1284,
+        "symbol": "GLMR",
+        "color": "#53CBC8"
+    },
+    "celo": {
+        "name": "Celo",
+        "rpc": "https://forno.celo.org",
+        "chain_id": 42220,
+        "symbol": "CELO",
+        "color": "#FCFF52"
+    },
+    "gnosis": {
+        "name": "Gnosis",
+        "rpc": "https://rpc.gnosischain.com",
+        "chain_id": 100,
+        "symbol": "xDAI",
+        "color": "#04795B"
+    },
+    "aurora": {
+        "name": "Aurora",
+        "rpc": "https://mainnet.aurora.dev",
+        "chain_id": 1313161554,
+        "symbol": "ETH",
+        "color": "#70D44B"
     }
-}
+};
+
+console.log('✅ [Dust.zip] App.js loaded');

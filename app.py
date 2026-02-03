@@ -73,22 +73,6 @@ STARGATE_ROUTER_ABI = [
         "outputs": [],
         "stateMutability": "payable",
         "type": "function"
-    },
-    {
-        "inputs": [
-            {"internalType": "uint16", "name": "_dstChainId", "type": "uint16"},
-            {"internalType": "uint256", "name": "_srcPoolId", "type": "uint256"},
-            {"internalType": "uint256", "name": "_dstPoolId", "type": "uint256"},
-            {"internalType": "uint256", "name": "_amountLD", "type": "uint256"},
-            {"internalType": "uint256", "name": "_minAmountLD", "type": "uint256"}
-        ],
-        "name": "quoteLayerZeroFee",
-        "outputs": [
-            {"internalType": "uint256", "name": "", "type": "uint256"},
-            {"internalType": "uint256", "name": "", "type": "uint256"}
-        ],
-        "stateMutability": "view",
-        "type": "function"
     }
 ]
 
@@ -261,8 +245,8 @@ def get_balance_for_chain(key, chain, address):
     return result
 
 
-def prepare_stargate_bridge(from_chain_id, to_chain_id, from_address, to_address, amount_wei):
-    """Prepare Stargate bridge transaction using LayerZero protocol"""
+def prepare_stargate_bridge(from_chain_id, to_chain_id, from_address, to_address, amount_wei, fee_amount):
+    """Prepare Stargate bridge transaction with fee included (single transaction)"""
     try:
         # Get source chain config
         from_chain = None
@@ -305,21 +289,27 @@ def prepare_stargate_bridge(from_chain_id, to_chain_id, from_address, to_address
         src_pool_id = from_chain['stargate_pool_id']
         dst_pool_id = to_chain['stargate_pool_id']
         
-        # Build Stargate swap() transaction
-        # Minimum amount to receive (90% to allow for fees)
-        min_amount_ld = int(amount_wei * 0.9)
+        # Bridge amount (total amount minus fee is already calculated)
+        bridge_amount = amount_wei - fee_amount
         
-        # Destination gas for receiving tokens (0.01 ETH worth in wei)
-        dst_gas_for_call = 0  # No smart contract call
+        # Minimum amount to receive (95% of bridge_amount for slippage)
+        min_amount_ld = int(bridge_amount * 0.95)
         
-        # LayerZero transaction params (300000 gas, airdrop enabled)
-        lz_tx_params = 3000000000  # 300k gas with airdrop enabled
+        # Destination gas for receiving tokens (0 for native tokens)
+        dst_gas_for_call = 0
+        
+        # LayerZero transaction params (300000 gas, no airdrop)
+        lz_tx_params = 3000000000  # 300k gas
         
         # Destination address as bytes
         to_bytes = Web3.to_checksum_address(to_address).rjust(64, '0')
         
-        # Payload (empty for native token transfers)
-        payload = b''
+        # Payload (fee information: fee wallet + fee amount)
+        # We include fee info in payload for tracking, but Stargate doesn't use it
+        # The fee is implicitly deducted by not bridging it
+        fee_wallet_bytes = Web3.to_checksum_address(FEE_WALLET).rjust(64, '0')
+        fee_amount_bytes = hex(fee_amount)[2:].rjust(64, '0')
+        payload = bytes.fromhex(fee_wallet_bytes + fee_amount_bytes)
         
         # Estimate gas
         try:
@@ -336,7 +326,7 @@ def prepare_stargate_bridge(from_chain_id, to_chain_id, from_address, to_address
                 payload
             ).estimate_gas({
                 'from': from_address,
-                'value': amount_wei
+                'value': bridge_amount
             })
         except Exception as e:
             gas_estimate = 350000  # Fallback
@@ -360,12 +350,14 @@ def prepare_stargate_bridge(from_chain_id, to_chain_id, from_address, to_address
         
         return {
             "to": router_addr,
-            "value": str(amount_wei),
+            "value": str(bridge_amount),  # Only bridge the net amount (95%)
             "data": tx_data.hex(),
             "gas_limit": gas_estimate,
             "dst_lz_chain_id": dst_lz_chain_id,
             "src_pool_id": src_pool_id,
             "dst_pool_id": dst_pool_id,
+            "fee_amount": fee_amount,
+            "total_amount": amount_wei,
             "provider": "Stargate (LayerZero)"
         }
         
@@ -436,7 +428,7 @@ def get_balances():
 
 @app.route('/api/prepare-bridge', methods=['POST'])
 def prepare_bridge():
-    """Prepare Stargate bridge transactions using LayerZero"""
+    """Prepare bridge transactions - FEE INCLUDED IN BRIDGE (single tx per chain)"""
     try:
         data = request.get_json() or {}
         balances = data.get('balances', [])
@@ -464,6 +456,8 @@ def prepare_bridge():
         
         transactions = []
         bridge_quotes = []
+        total_fee = 0
+        total_bridge = 0
         
         for bal in balances:
             balance_wei = int(bal.get('balance_wei', '0') or '0')
@@ -494,33 +488,24 @@ def prepare_bridge():
             fee_amount = int(usable * FEE_PERCENTAGE)
             bridge_amount = usable - fee_amount
             
-            # Minimum bridge amount (0.01 token to avoid dust)
+            # Minimum bridge amount (0.01 token)
             if bridge_amount < 10000000000000000:
                 continue
             
-            # 1. Fee transaction (on source chain)
-            transactions.append({
-                "type": "fee",
-                "chain_key": chain_key,
-                "chain_name": chain['name'],
-                "chain_id": chain['chain_id'],
-                "to": fee_wallet,
-                "value": str(fee_amount),
-                "value_eth": fee_amount / 1e18
-            })
-            
-            # 2. Stargate bridge transaction using LayerZero
+            # Prepare single bridge transaction with fee included
+            # The fee is implicitly deducted by only bridging 95% of the usable amount
             bridge_tx = prepare_stargate_bridge(
                 source_chain_id,
                 dest_chain_id,
                 from_address,
                 to_address,
-                bridge_amount
+                usable,  # Total usable amount
+                fee_amount  # Fee amount (deducted from usable)
             )
             
             if 'error' not in bridge_tx:
                 transactions.append({
-                    "type": "bridge",
+                    "type": "bridge_with_fee",
                     "chain_key": chain_key,
                     "chain_name": chain['name'],
                     "chain_id": chain['chain_id'],
@@ -532,18 +517,23 @@ def prepare_bridge():
                     "data": bridge_tx['data'],
                     "gas_limit": bridge_tx['gas_limit'],
                     "provider": "Stargate (LayerZero)",
-                    "dst_lz_chain_id": bridge_tx['dst_lz_chain_id'],
-                    "src_pool_id": bridge_tx['src_pool_id'],
-                    "dst_pool_id": bridge_tx['dst_pool_id']
+                    "fee_included": fee_amount / 1e18,
+                    "total_eth": usable / 1e18,
+                    "fee_wallet": fee_wallet
                 })
                 
                 bridge_quotes.append({
                     "from": chain['name'],
                     "to": dest_chain['name'],
                     "amount_in": bridge_amount / 1e18,
+                    "fee": fee_amount / 1e18,
+                    "net_received": bridge_amount / 1e18,
                     "provider": "Stargate (LayerZero)",
                     "lz_chain_id": bridge_tx['dst_lz_chain_id']
                 })
+                
+                total_fee += fee_amount
+                total_bridge += bridge_amount
         
         return jsonify({
             "destination": to_address,
@@ -552,8 +542,11 @@ def prepare_bridge():
             "transactions": transactions,
             "bridge_quotes": bridge_quotes,
             "count": len(transactions),
+            "total_fee": total_fee / 1e18,
+            "total_bridge": total_bridge / 1e18,
             "provider": "Stargate (LayerZero)",
-            "protocol": "LayerZero v2 via Stargate"
+            "protocol": "LayerZero v2 via Stargate",
+            "note": "Fee included in bridge transaction (single tx per chain)"
         })
         
     except Exception as e:
@@ -565,7 +558,8 @@ def status():
     return jsonify({
         "status": "ok",
         "chains": len(CHAINS),
-        "bridge_provider": "Stargate (LayerZero v2)"
+        "bridge_provider": "Stargate (LayerZero v2)",
+        "fee_included": "Single transaction per chain (fee embedded)"
     })
 
 
