@@ -82,7 +82,7 @@ def scan_balances():
             w3 = get_web3(chain_key)
             if w3:
                 balance = get_balance(w3, address)
-                if balance > 0.0001:  # Only show meaningful balances
+                if balance > 0.000001:  # Only show meaningful balances
                     chain = CHAINS[chain_key]
                     balances.append({
                         "chain": chain_key,
