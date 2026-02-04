@@ -423,7 +423,7 @@
                     <div class="balance-footer">
                         <span class="balance-usd">≈ $${(bal.balance_usd || 0).toFixed(2)}</span>
                         <span class="checkbox-wrapper">
-                            <input type="checkbox" class="balance-checkbox" data-chain="${bal.key}" checked>
+                            <input type="checkbox" class="balance-checkbox" data-chain="${bal.chain}" checked>
                         </span>
                     </div>
                 `;
@@ -441,7 +441,7 @@
             const destinationChain = destChainSelect ? destChainSelect.value : 'ethereum';
             
             const selectedBalances = scannedBalances.filter(b => {
-                const checkbox = document.querySelector(`.balance-checkbox[data-chain="${b.key}"]`);
+                const checkbox = document.querySelector(`.balance-checkbox[data-chain="${b.chain}"]`);
                 return checkbox && checkbox.checked;
             });
 
